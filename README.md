@@ -106,10 +106,10 @@ cp apps/admin/.env.example apps/admin/.env
 | Branch | Purpose |
 |---|---|
 | `main` | Production ready code |
-| `dev` | Integration branch |
+| `Testing` | Integration/testing branch |
 | `feature/*` | Individual features |
 
-PRs go `feature/* -> dev`. When stable, `dev -> main`.
+PRs go `feature/* -> testing`. When stable, `dev -> main`.
 
 ---
 
@@ -124,9 +124,9 @@ Game results and winners are manually entered via the admin panel at the end of 
 
 ## Contributing
 
-1. Branch off `dev`
+1. Branch off `testing`
 2. Name your branch `feature/your-feature-name`
-3. Open a PR targeting `dev`
+3. Open a PR targeting `testing`
 4. Get a review before merging
 
 ---
