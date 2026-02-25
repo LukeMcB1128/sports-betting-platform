@@ -5,91 +5,54 @@ import { colors } from '../styles/GlobalStyles';
 import GameCard from '../components/GameCard';
 
 const MOCK_GAMES: Game[] = [
-  {
-    id: '1',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Boston Celtics',
-    homeTeam: 'Miami Heat',
+  {id: '1',
+    sport: 'Basketball',
+    league: '6A Basketball',
+    awayTeam: 'Akins',
+    homeTeam: 'Austin',
     startTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
     status: 'upcoming',
     odds: {
-      moneyline: { away: -160, home: +135 },
+      moneyline: { away: -110, home: -110},
       spread: {
-        away: { line: -3.5, juice: -110 },
-        home: { line: +3.5, juice: -110 },
+        away: { line: +4.5, juice: -110 },
+        home: { line: -4.5, juice: -110 },
       },
     },
   },
-  {
-    id: '2',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Golden State Warriors',
-    homeTeam: 'Los Angeles Lakers',
-    startTime: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    status: 'live',
-    awayScore: 58,
-    homeScore: 54,
-    odds: {
-      moneyline: { away: -120, home: +100 },
-      spread: {
-        away: { line: -1.5, juice: -110 },
-        home: { line: +1.5, juice: -110 },
-      },
-    },
-  },
-  {
-    id: '3',
-    sport: 'football',
-    league: 'NFL',
-    awayTeam: 'Dallas Cowboys',
-    homeTeam: 'Philadelphia Eagles',
-    startTime: new Date(Date.now() + 1000 * 60 * 60 * 3).toISOString(),
+  {id: '2',
+    sport: 'Basketball',
+    league: '6A Basketball',
+    awayTeam: 'Lake Travis',
+    homeTeam: 'Westlake',
+    startTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
     status: 'upcoming',
     odds: {
-      moneyline: { away: +105, home: -125 },
+      moneyline: { away: -110, home: -110},
       spread: {
-        away: { line: +2.5, juice: -110 },
-        home: { line: -2.5, juice: -110 },
+        away: { line: +4.5, juice: -110 },
+        home: { line: -4.5, juice: -110 },
       },
     },
   },
-  {
-    id: '4',
-    sport: 'hockey',
-    league: 'NHL',
-    awayTeam: 'Toronto Maple Leafs',
-    homeTeam: 'New York Rangers',
-    startTime: new Date(Date.now() + 1000 * 60 * 60 * 5).toISOString(),
+  {id: '3',
+    sport: 'Basketball',
+    league: '5A Basketball',
+    awayTeam: 'McCallum',
+    homeTeam: 'Anderson',
+    startTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
     status: 'upcoming',
     odds: {
-      moneyline: { away: +115, home: -135 },
+      moneyline: { away: -110, home: -110},
       spread: {
-        away: { line: +1.5, juice: -200 },
-        home: { line: -1.5, juice: +165 },
+        away: { line: +4.5, juice: -110 },
+        home: { line: -4.5, juice: -110 },
       },
     },
-  },
-  {
-    id: '5',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Phoenix Suns',
-    homeTeam: 'Denver Nuggets',
-    startTime: new Date(Date.now() + 1000 * 60 * 60 * 7).toISOString(),
-    status: 'upcoming',
-    odds: {
-      moneyline: { away: +175, home: -210 },
-      spread: {
-        away: { line: +5.5, juice: -110 },
-        home: { line: -5.5, juice: -110 },
-      },
-    },
-  },
+  }
 ];
 
-const SPORT_ORDER = ['live', 'NBA', 'NFL', 'NHL'];
+const SPORT_ORDER = ['live', 'Basketball', 'Football', 'Soccer', 'Baseball'];
 
 type GroupedGames = { label: string; games: Game[] }[];
 
@@ -153,7 +116,7 @@ const LiveDot = styled.span`
 
 const GameGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 12px;
 `;
 
