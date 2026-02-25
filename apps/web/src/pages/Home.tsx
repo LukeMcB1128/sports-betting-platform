@@ -3,93 +3,10 @@ import styled from 'styled-components';
 import { Game } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GameCard from '../components/GameCard';
+import useGames from '../hooks/useGames';
 
-const MOCK_GAMES: Game[] = [
-  {
-    id: '1',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Boston Celtics',
-    homeTeam: 'Miami Heat',
-    startTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
-    status: 'upcoming',
-    odds: {
-      moneyline: { away: -160, home: +135 },
-      spread: {
-        away: { line: -3.5, juice: -110 },
-        home: { line: +3.5, juice: -110 },
-      },
-    },
-  },
-  {
-    id: '2',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Golden State Warriors',
-    homeTeam: 'Los Angeles Lakers',
-    startTime: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    status: 'live',
-    awayScore: 58,
-    homeScore: 54,
-    odds: {
-      moneyline: { away: -120, home: +100 },
-      spread: {
-        away: { line: -1.5, juice: -110 },
-        home: { line: +1.5, juice: -110 },
-      },
-    },
-  },
-  {
-    id: '3',
-    sport: 'football',
-    league: 'NFL',
-    awayTeam: 'Dallas Cowboys',
-    homeTeam: 'Philadelphia Eagles',
-    startTime: new Date(Date.now() + 1000 * 60 * 60 * 3).toISOString(),
-    status: 'upcoming',
-    odds: {
-      moneyline: { away: +105, home: -125 },
-      spread: {
-        away: { line: +2.5, juice: -110 },
-        home: { line: -2.5, juice: -110 },
-      },
-    },
-  },
-  {
-    id: '4',
-    sport: 'hockey',
-    league: 'NHL',
-    awayTeam: 'Toronto Maple Leafs',
-    homeTeam: 'New York Rangers',
-    startTime: new Date(Date.now() + 1000 * 60 * 60 * 5).toISOString(),
-    status: 'upcoming',
-    odds: {
-      moneyline: { away: +115, home: -135 },
-      spread: {
-        away: { line: +1.5, juice: -200 },
-        home: { line: -1.5, juice: +165 },
-      },
-    },
-  },
-  {
-    id: '5',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Phoenix Suns',
-    homeTeam: 'Denver Nuggets',
-    startTime: new Date(Date.now() + 1000 * 60 * 60 * 7).toISOString(),
-    status: 'upcoming',
-    odds: {
-      moneyline: { away: +175, home: -210 },
-      spread: {
-        away: { line: +5.5, juice: -110 },
-        home: { line: -5.5, juice: -110 },
-      },
-    },
-  },
-];
-
-const SPORT_ORDER = ['live', 'NBA', 'NFL', 'NHL'];
+// Fallback shown only if the admin app has never been opened in this browser
+const FALLBACK_GAMES: Game[] = [];
 
 type GroupedGames = { label: string; games: Game[] }[];
 
@@ -97,7 +14,7 @@ const groupGames = (games: Game[]): GroupedGames => {
   const live = games.filter((g) => g.status === 'live');
   const byLeague: Record<string, Game[]> = {};
   games
-    .filter((g) => g.status !== 'live')
+    .filter((g) => g.status !== 'live' && g.status !== 'final')
     .forEach((g) => {
       if (!byLeague[g.league]) byLeague[g.league] = [];
       byLeague[g.league].push(g);
@@ -157,25 +74,48 @@ const GameGrid = styled.div`
   gap: 12px;
 `;
 
+const EmptyState = styled.div`
+  text-align: center;
+  padding: 64px 16px;
+  color: ${colors.textMuted};
+  font-size: 14px;
+`;
+
+const EmptyTitle = styled.p`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${colors.text};
+  margin-bottom: 8px;
+`;
+
 const Home: React.FC = () => {
-  const groups = groupGames(MOCK_GAMES);
+  const games = useGames(FALLBACK_GAMES);
+  const groups = groupGames(games);
 
   return (
     <Page>
       <PageTitle>Today's Games</PageTitle>
-      {groups.map(({ label, games }) => (
-        <Section key={label}>
-          <SectionHeader>
-            {label === 'Live Now' && <LiveDot />}
-            <SectionTitle>{label}</SectionTitle>
-          </SectionHeader>
-          <GameGrid>
-            {games.map((game) => (
-              <GameCard key={game.id} game={game} />
-            ))}
-          </GameGrid>
-        </Section>
-      ))}
+
+      {groups.length === 0 ? (
+        <EmptyState>
+          <EmptyTitle>No games available</EmptyTitle>
+          <p>Check back soon or add games from the Admin panel.</p>
+        </EmptyState>
+      ) : (
+        groups.map(({ label, games: groupGames }) => (
+          <Section key={label}>
+            <SectionHeader>
+              {label === 'Live Now' && <LiveDot />}
+              <SectionTitle>{label}</SectionTitle>
+            </SectionHeader>
+            <GameGrid>
+              {groupGames.map((game) => (
+                <GameCard key={game.id} game={game} />
+              ))}
+            </GameGrid>
+          </Section>
+        ))
+      )}
     </Page>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Game, GameStatus, GameOdds } from '../types';
 import { colors } from '../styles/GlobalStyles';
@@ -6,6 +6,7 @@ import GamesTable from '../components/GamesTable';
 import AddGameModal from '../components/AddGameModal';
 import SetLinesModal from '../components/SetLinesModal';
 import Button from '../components/Button';
+import { persistGames, loadGames } from '../utils/gamesStorage';
 
 const INITIAL_GAMES: Game[] = [
   {
@@ -96,9 +97,15 @@ const StatLabel = styled.div`
 `;
 
 const Dashboard: React.FC = () => {
-  const [games, setGames] = useState<Game[]>(INITIAL_GAMES);
+  // Seed from localStorage if available, otherwise use hardcoded defaults
+  const [games, setGames] = useState<Game[]>(() => loadGames() ?? INITIAL_GAMES);
   const [showAddGame, setShowAddGame] = useState(false);
   const [editLinesGame, setEditLinesGame] = useState<Game | null>(null);
+
+  // Persist to localStorage whenever games change
+  useEffect(() => {
+    persistGames(games);
+  }, [games]);
 
   const handleAddGame = (game: Game) => {
     setGames((prev) => [game, ...prev]);
