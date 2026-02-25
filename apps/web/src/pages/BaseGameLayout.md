@@ -24,6 +24,7 @@ Game[] = [
 - ID is the number in list
 - Sport is the sport being played, think football, soccer, etc
 - League will almost always be AISD(6A D1/2 and others), however playoffs and other events will be noted there
+- Note: Name should always be school name, for example: Akins instead of Akins Eagles
 - Away team will be away for the venue
 - Home is home for the venue
 - Start time is indicated in AM/PM CDT
