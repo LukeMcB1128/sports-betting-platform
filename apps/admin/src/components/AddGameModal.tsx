@@ -11,13 +11,12 @@ interface AddGameModalProps {
   onAdd: (game: Game) => void;
 }
 
-const SPORTS = ['Basketball', 'Football', 'Hockey', 'Baseball', 'Soccer'];
+const SPORTS = ['Basketball', 'Football', 'Baseball', 'Soccer'];
 const LEAGUES: Record<string, string[]> = {
-  Basketball: ['NBA', 'NCAA'],
-  Football: ['NFL', 'NCAAF'],
-  Hockey: ['NHL'],
-  Baseball: ['MLB'],
-  Soccer: ['MLS', 'EPL'],
+  Basketball: ['Regular Season', 'Tournament', 'Playoffs', 'Preseason'],
+  Football: ['Regular Season', 'Playoffs', 'Scrimmage'],
+  Baseball: ['Regular Season', 'Tournament', 'Playoffs', 'Preseason'],
+  Soccer: ['Regular Season', 'Tournament', 'Playoffs', 'Scrimmage'],
 };
 
 const Form = styled.form`
@@ -48,7 +47,7 @@ type Errors = Partial<Record<keyof AddGameFormData, string>>;
 
 const DEFAULT_FORM: AddGameFormData = {
   sport: 'Basketball',
-  league: 'NBA',
+  league: 'Regular Season',
   homeTeam: '',
   awayTeam: '',
   startDate: '',
@@ -56,10 +55,10 @@ const DEFAULT_FORM: AddGameFormData = {
 };
 
 const DEFAULT_ODDS: GameOdds = {
-  moneyline: { home: -110, away: -110 },
+  moneyline: { home: 0, away: 0 },
   spread: {
-    home: { line: -1.5, juice: -110 },
-    away: { line: +1.5, juice: -110 },
+    home: { line: 0, juice: -110 },
+    away: { line: 0, juice: -110 },
   },
 };
 
@@ -136,14 +135,14 @@ const AddGameModal: React.FC<AddGameModalProps> = ({ onClose, onAdd }) => {
 
         <FormField label="Away Team" error={errors.awayTeam}>
           <Input
-            placeholder="e.g. Boston Celtics"
+            placeholder="e.g. Lake Travis"
             value={form.awayTeam}
             onChange={(e) => set('awayTeam', e.target.value)}
           />
         </FormField>
         <FormField label="Home Team" error={errors.homeTeam}>
           <Input
-            placeholder="e.g. Miami Heat"
+            placeholder="e.g. Austin High"
             value={form.homeTeam}
             onChange={(e) => set('homeTeam', e.target.value)}
           />

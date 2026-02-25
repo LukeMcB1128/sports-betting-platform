@@ -8,42 +8,7 @@ import SetLinesModal from '../components/SetLinesModal';
 import Button from '../components/Button';
 import { persistGames, loadGames } from '../utils/gamesStorage';
 
-const INITIAL_GAMES: Game[] = [
-  {
-    id: '1',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Boston Celtics',
-    homeTeam: 'Miami Heat',
-    startTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
-    status: 'upcoming',
-    odds: {
-      moneyline: { away: -160, home: +135 },
-      spread: {
-        away: { line: -3.5, juice: -110 },
-        home: { line: +3.5, juice: -110 },
-      },
-    },
-  },
-  {
-    id: '2',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Golden State Warriors',
-    homeTeam: 'Los Angeles Lakers',
-    startTime: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    status: 'live',
-    awayScore: 58,
-    homeScore: 54,
-    odds: {
-      moneyline: { away: -120, home: +100 },
-      spread: {
-        away: { line: -1.5, juice: -110 },
-        home: { line: +1.5, juice: -110 },
-      },
-    },
-  },
-];
+const INITIAL_GAMES: Game[] = [];
 
 const Page = styled.main`
   max-width: 1100px;
