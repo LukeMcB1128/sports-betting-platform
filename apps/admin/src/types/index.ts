@@ -1,0 +1,49 @@
+export type GameStatus = 'upcoming' | 'live' | 'final';
+
+export interface SpreadSide {
+  line: number;
+  juice: number;
+}
+
+export interface GameOdds {
+  moneyline: {
+    home: number;
+    away: number;
+  };
+  spread: {
+    home: SpreadSide;
+    away: SpreadSide;
+  };
+}
+
+export interface Game {
+  id: string;
+  sport: string;
+  league: string;
+  homeTeam: string;
+  awayTeam: string;
+  startTime: string; // ISO string
+  status: GameStatus;
+  homeScore?: number;
+  awayScore?: number;
+  odds: GameOdds;
+}
+
+// Form shapes (all strings before parsing)
+export interface AddGameFormData {
+  sport: string;
+  league: string;
+  homeTeam: string;
+  awayTeam: string;
+  startDate: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+}
+
+export interface SetLinesFormData {
+  mlHome: string;
+  mlAway: string;
+  spreadHomeLine: string;
+  spreadHomeJuice: string;
+  spreadAwayLine: string;
+  spreadAwayJuice: string;
+}
