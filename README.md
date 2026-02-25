@@ -107,9 +107,9 @@ cp apps/admin/.env.example apps/admin/.env
 |---|---|
 | `main` | Production ready code |
 | `Testing` | Integration/testing branch |
-| `feature/*` | Individual features |
+| `feature-` | Individual features |
 
-PRs go `feature/* -> testing`. When stable, `dev -> main`.
+PRs go `feature- -> testing`. When stable, `testing -> main`.
 
 ---
 
