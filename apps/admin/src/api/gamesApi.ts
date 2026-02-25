@@ -38,6 +38,16 @@ export const updateGameOdds = async (id: string, odds: GameOdds): Promise<Game> 
   return res.json();
 };
 
+export const togglePublishGame = async (id: string, published: boolean): Promise<Game> => {
+  const res = await fetch(`${API_BASE}/games/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ published }),
+  });
+  if (!res.ok) throw new Error('Failed to update game visibility');
+  return res.json();
+};
+
 export const removeGame = async (id: string): Promise<void> => {
   const res = await fetch(`${API_BASE}/games/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to remove game');

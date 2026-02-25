@@ -11,6 +11,7 @@ import {
   createGame,
   updateGameStatus,
   updateGameOdds,
+  togglePublishGame,
   removeGame,
 } from '../api/gamesApi';
 
@@ -108,6 +109,13 @@ const Dashboard: React.FC = () => {
     );
   };
 
+  const handleTogglePublish = async (gameId: string, published: boolean) => {
+    await togglePublishGame(gameId, published);
+    setGames((prev) =>
+      prev.map((g) => (g.id === gameId ? { ...g, published } : g))
+    );
+  };
+
   const handleRemove = async (gameId: string) => {
     await removeGame(gameId);
     setGames((prev) => prev.filter((g) => g.id !== gameId));
@@ -155,6 +163,7 @@ const Dashboard: React.FC = () => {
         onSetLines={setEditLinesGame}
         onUpdateStatus={handleUpdateStatus}
         onUpdateOdds={handleSaveLines}
+        onTogglePublish={handleTogglePublish}
         onRemove={handleRemove}
       />
 

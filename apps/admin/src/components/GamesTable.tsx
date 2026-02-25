@@ -10,6 +10,7 @@ interface GamesTableProps {
   onUpdateStatus: (gameId: string, status: GameStatus) => void;
   onUpdateOdds: (gameId: string, odds: GameOdds) => void;
   onRemove: (gameId: string) => void;
+  onTogglePublish: (gameId: string, published: boolean) => void;
 }
 
 const TableWrap = styled.div`
@@ -21,7 +22,7 @@ const TableWrap = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 700px;
+  min-width: 800px;
 `;
 
 const Th = styled.th`
@@ -82,21 +83,17 @@ const LeagueBadge = styled.span`
   color: ${colors.textMuted};
 `;
 
-const StatusBadge = styled.span<{ status: GameStatus }>`
+const PublishBadge = styled.span<{ published: boolean }>`
+  display: inline-block;
   border-radius: 4px;
   padding: 3px 8px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  background-color: ${({ status }) =>
-    status === 'live' ? colors.live :
-    status === 'final' ? colors.surfaceHover :
-    colors.surfaceHover};
-  color: ${({ status }) =>
-    status === 'live' ? '#fff' :
-    status === 'final' ? colors.textMuted :
-    colors.textMuted};
+  background-color: ${({ published }) => published ? 'rgba(34,197,94,0.15)' : colors.surfaceHover};
+  color: ${({ published }) => published ? colors.success : colors.textMuted};
+  border: 1px solid ${({ published }) => published ? 'rgba(34,197,94,0.3)' : colors.border};
 `;
 
 const OddsSummary = styled.div`
@@ -127,10 +124,7 @@ const StatusSelect = styled.select`
   outline: none;
   cursor: pointer;
 
-  &:focus {
-    border-color: ${colors.inputFocus};
-  }
-
+  &:focus { border-color: ${colors.inputFocus}; }
   option { background-color: ${colors.surface}; }
 `;
 
@@ -147,24 +141,33 @@ const EmptyCell = styled.td`
   font-size: 13px;
 `;
 
-const GamesTable: React.FC<GamesTableProps> = ({ games, onSetLines, onUpdateStatus, onRemove }) => {
+const COLS = 7;
+
+const GamesTable: React.FC<GamesTableProps> = ({
+  games, onSetLines, onUpdateStatus, onRemove, onTogglePublish,
+}) => {
+  const header = (
+    <thead>
+      <tr>
+        <Th>Matchup</Th>
+        <Th>League</Th>
+        <Th>Start</Th>
+        <Th>Lines</Th>
+        <Th>Status</Th>
+        <Th>Visibility</Th>
+        <Th>Actions</Th>
+      </tr>
+    </thead>
+  );
+
   if (games.length === 0) {
     return (
       <TableWrap>
         <Table>
-          <thead>
-            <tr>
-              <Th>Matchup</Th>
-              <Th>League</Th>
-              <Th>Start</Th>
-              <Th>Lines</Th>
-              <Th>Status</Th>
-              <Th>Actions</Th>
-            </tr>
-          </thead>
+          {header}
           <tbody>
             <EmptyRow>
-              <EmptyCell colSpan={6}>No games yet — add one above.</EmptyCell>
+              <EmptyCell colSpan={COLS}>No games yet — add one above.</EmptyCell>
             </EmptyRow>
           </tbody>
         </Table>
@@ -175,49 +178,35 @@ const GamesTable: React.FC<GamesTableProps> = ({ games, onSetLines, onUpdateStat
   return (
     <TableWrap>
       <Table>
-        <thead>
-          <tr>
-            <Th>Matchup</Th>
-            <Th>League</Th>
-            <Th>Start</Th>
-            <Th>Lines</Th>
-            <Th>Status</Th>
-            <Th>Actions</Th>
-          </tr>
-        </thead>
+        {header}
         <tbody>
           {games.map((game) => (
             <Tr key={game.id}>
+              {/* Matchup */}
               <Td>
                 <Matchup>
-                  <div>
-                    <AwayLabel>AWAY </AwayLabel>
-                    <TeamName>{game.awayTeam}</TeamName>
-                  </div>
-                  <div>
-                    <AwayLabel>HOME </AwayLabel>
-                    <TeamName>{game.homeTeam}</TeamName>
-                  </div>
+                  <div><AwayLabel>AWAY </AwayLabel><TeamName>{game.awayTeam}</TeamName></div>
+                  <div><AwayLabel>HOME </AwayLabel><TeamName>{game.homeTeam}</TeamName></div>
                 </Matchup>
               </Td>
 
+              {/* League */}
               <Td><LeagueBadge>{game.league}</LeagueBadge></Td>
 
+              {/* Start time */}
               <Td style={{ whiteSpace: 'nowrap', fontSize: 12, color: colors.textMuted }}>
                 {formatTime(game.startTime)}
               </Td>
 
+              {/* Lines summary */}
               <Td>
                 <OddsSummary>
-                  <OddsLine>
-                    ML: {formatOdds(game.odds.moneyline.away)} / {formatOdds(game.odds.moneyline.home)}
-                  </OddsLine>
-                  <OddsLine>
-                    SPR: {formatOdds(game.odds.spread.away.line)} ({formatOdds(game.odds.spread.away.juice)}) / {formatOdds(game.odds.spread.home.line)} ({formatOdds(game.odds.spread.home.juice)})
-                  </OddsLine>
+                  <OddsLine>ML: {formatOdds(game.odds.moneyline.away)} / {formatOdds(game.odds.moneyline.home)}</OddsLine>
+                  <OddsLine>SPR: {formatOdds(game.odds.spread.away.line)} ({formatOdds(game.odds.spread.away.juice)}) / {formatOdds(game.odds.spread.home.line)} ({formatOdds(game.odds.spread.home.juice)})</OddsLine>
                 </OddsSummary>
               </Td>
 
+              {/* Game status */}
               <Td>
                 <StatusSelect
                   value={game.status}
@@ -229,11 +218,27 @@ const GamesTable: React.FC<GamesTableProps> = ({ games, onSetLines, onUpdateStat
                 </StatusSelect>
               </Td>
 
+              {/* Publish status */}
+              <Td>
+                <PublishBadge published={game.published}>
+                  {game.published ? 'Published' : 'Draft'}
+                </PublishBadge>
+              </Td>
+
+              {/* Actions */}
               <Td>
                 <ActionCell>
                   <Button
                     size="sm"
-                    variant="primary"
+                    variant={game.published ? 'ghost' : 'primary'}
+                    onClick={() => onTogglePublish(game.id, !game.published)}
+                    disabled={game.status === 'final'}
+                  >
+                    {game.published ? 'Unpublish' : 'Publish'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
                     onClick={() => onSetLines(game)}
                     disabled={game.status === 'final'}
                   >
