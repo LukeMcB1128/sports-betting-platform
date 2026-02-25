@@ -30,6 +30,7 @@ export interface Game {
   awayTeam: string;
   startTime: string; // ISO string
   status: GameStatus;
+  published: boolean;
   homeScore?: number;
   awayScore?: number;
   odds: GameOdds;

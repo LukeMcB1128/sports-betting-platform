@@ -24,6 +24,7 @@ export interface Game {
   awayTeam: string;
   startTime: string; // ISO string
   status: GameStatus;
+  published: boolean;
   homeScore?: number;
   awayScore?: number;
   odds: GameOdds;
@@ -37,6 +38,13 @@ export interface AddGameFormData {
   awayTeam: string;
   startDate: string; // yyyy-MM-dd
   startTime: string; // HH:mm
+  // Opening lines
+  mlAway: string;
+  mlHome: string;
+  spreadAwayLine: string;
+  spreadAwayJuice: string;
+  spreadHomeLine: string;
+  spreadHomeJuice: string;
 }
 
 export interface SetLinesFormData {
