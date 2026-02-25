@@ -132,14 +132,14 @@ const SetLinesModal: React.FC<SetLinesModalProps> = ({ game, onClose, onSave }) 
         <Row>
           <FormField label={`Away — ${game.awayTeam}`} error={errors.mlAway}>
             <Input
-              placeholder="-110"
+              placeholder=""
               value={form.mlAway}
               onChange={(e) => set('mlAway', e.target.value)}
             />
           </FormField>
           <FormField label={`Home — ${game.homeTeam}`} error={errors.mlHome}>
             <Input
-              placeholder="-110"
+              placeholder=""
               value={form.mlHome}
               onChange={(e) => set('mlHome', e.target.value)}
             />
@@ -153,7 +153,7 @@ const SetLinesModal: React.FC<SetLinesModalProps> = ({ game, onClose, onSave }) 
         <Row>
           <FormField label={`Away Line — ${game.awayTeam}`} error={errors.spreadAwayLine}>
             <Input
-              placeholder="+3.5"
+              placeholder=""
               value={form.spreadAwayLine}
               onChange={(e) => set('spreadAwayLine', e.target.value)}
             />
@@ -169,7 +169,7 @@ const SetLinesModal: React.FC<SetLinesModalProps> = ({ game, onClose, onSave }) 
         <Row>
           <FormField label={`Home Line — ${game.homeTeam}`} error={errors.spreadHomeLine}>
             <Input
-              placeholder="-3.5"
+              placeholder=""
               value={form.spreadHomeLine}
               onChange={(e) => set('spreadHomeLine', e.target.value)}
             />
