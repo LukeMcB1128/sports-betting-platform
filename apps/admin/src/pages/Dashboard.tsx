@@ -6,44 +6,13 @@ import GamesTable from '../components/GamesTable';
 import AddGameModal from '../components/AddGameModal';
 import SetLinesModal from '../components/SetLinesModal';
 import Button from '../components/Button';
-import { persistGames, loadGames } from '../utils/gamesStorage';
-
-const INITIAL_GAMES: Game[] = [
-  {
-    id: '1',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Boston Celtics',
-    homeTeam: 'Miami Heat',
-    startTime: new Date(Date.now() + 1000 * 60 * 90).toISOString(),
-    status: 'upcoming',
-    odds: {
-      moneyline: { away: -160, home: +135 },
-      spread: {
-        away: { line: -3.5, juice: -110 },
-        home: { line: +3.5, juice: -110 },
-      },
-    },
-  },
-  {
-    id: '2',
-    sport: 'basketball',
-    league: 'NBA',
-    awayTeam: 'Golden State Warriors',
-    homeTeam: 'Los Angeles Lakers',
-    startTime: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
-    status: 'live',
-    awayScore: 58,
-    homeScore: 54,
-    odds: {
-      moneyline: { away: -120, home: +100 },
-      spread: {
-        away: { line: -1.5, juice: -110 },
-        home: { line: +1.5, juice: -110 },
-      },
-    },
-  },
-];
+import {
+  fetchGames,
+  createGame,
+  updateGameStatus,
+  updateGameOdds,
+  removeGame,
+} from '../api/gamesApi';
 
 const Page = styled.main`
   max-width: 1100px;
@@ -96,34 +65,51 @@ const StatLabel = styled.div`
   margin-top: 4px;
 `;
 
+const Banner = styled.div<{ variant: 'error' | 'loading' }>`
+  background-color: ${({ variant }) => variant === 'error' ? '#3b1212' : colors.surfaceHover};
+  border: 1px solid ${({ variant }) => variant === 'error' ? colors.danger : colors.border};
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: ${({ variant }) => variant === 'error' ? colors.danger : colors.textMuted};
+`;
+
 const Dashboard: React.FC = () => {
-  // Seed from localStorage if available, otherwise use hardcoded defaults
-  const [games, setGames] = useState<Game[]>(() => loadGames() ?? INITIAL_GAMES);
+  const [games, setGames] = useState<Game[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAddGame, setShowAddGame] = useState(false);
   const [editLinesGame, setEditLinesGame] = useState<Game | null>(null);
 
-  // Persist to localStorage whenever games change
   useEffect(() => {
-    persistGames(games);
-  }, [games]);
+    fetchGames()
+      .then(setGames)
+      .catch(() => setError('Cannot connect to dev server. Run: node infra/dev-server.js'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleAddGame = (game: Game) => {
+  const handleAddGame = async (game: Game) => {
+    await createGame(game);
     setGames((prev) => [game, ...prev]);
   };
 
-  const handleUpdateStatus = (gameId: string, status: GameStatus) => {
+  const handleUpdateStatus = async (gameId: string, status: GameStatus) => {
+    await updateGameStatus(gameId, status);
     setGames((prev) =>
       prev.map((g) => (g.id === gameId ? { ...g, status } : g))
     );
   };
 
-  const handleSaveLines = (gameId: string, odds: GameOdds) => {
+  const handleSaveLines = async (gameId: string, odds: GameOdds) => {
+    await updateGameOdds(gameId, odds);
     setGames((prev) =>
       prev.map((g) => (g.id === gameId ? { ...g, odds } : g))
     );
   };
 
-  const handleRemove = (gameId: string) => {
+  const handleRemove = async (gameId: string) => {
+    await removeGame(gameId);
     setGames((prev) => prev.filter((g) => g.id !== gameId));
   };
 
@@ -135,29 +121,34 @@ const Dashboard: React.FC = () => {
     <Page>
       <PageHeader>
         <PageTitle>Games</PageTitle>
-        <Button variant="primary" onClick={() => setShowAddGame(true)}>
+        <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
           + Add Game
         </Button>
       </PageHeader>
 
-      <StatsRow>
-        <StatCard>
-          <StatValue>{games.length}</StatValue>
-          <StatLabel>Total</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue style={{ color: colors.live }}>{liveCount}</StatValue>
-          <StatLabel>Live</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue>{upcomingCount}</StatValue>
-          <StatLabel>Upcoming</StatLabel>
-        </StatCard>
-        <StatCard>
-          <StatValue style={{ color: colors.textMuted }}>{finalCount}</StatValue>
-          <StatLabel>Final</StatLabel>
-        </StatCard>
-      </StatsRow>
+      {loading && <Banner variant="loading">Loading games from dev server…</Banner>}
+      {error && <Banner variant="error">{error}</Banner>}
+
+      {!loading && !error && (
+        <StatsRow>
+          <StatCard>
+            <StatValue>{games.length}</StatValue>
+            <StatLabel>Total</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatValue style={{ color: colors.live }}>{liveCount}</StatValue>
+            <StatLabel>Live</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatValue>{upcomingCount}</StatValue>
+            <StatLabel>Upcoming</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatValue style={{ color: colors.textMuted }}>{finalCount}</StatValue>
+            <StatLabel>Final</StatLabel>
+          </StatCard>
+        </StatsRow>
+      )}
 
       <GamesTable
         games={games}
