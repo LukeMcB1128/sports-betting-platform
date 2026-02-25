@@ -9,6 +9,7 @@ interface GamesTableProps {
   onSetLines: (game: Game) => void;
   onUpdateStatus: (gameId: string, status: GameStatus) => void;
   onUpdateOdds: (gameId: string, odds: GameOdds) => void;
+  onRemove: (gameId: string) => void;
 }
 
 const TableWrap = styled.div`
@@ -146,7 +147,7 @@ const EmptyCell = styled.td`
   font-size: 13px;
 `;
 
-const GamesTable: React.FC<GamesTableProps> = ({ games, onSetLines, onUpdateStatus }) => {
+const GamesTable: React.FC<GamesTableProps> = ({ games, onSetLines, onUpdateStatus, onRemove }) => {
   if (games.length === 0) {
     return (
       <TableWrap>
@@ -237,6 +238,13 @@ const GamesTable: React.FC<GamesTableProps> = ({ games, onSetLines, onUpdateStat
                     disabled={game.status === 'final'}
                   >
                     Set Lines
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => onRemove(game.id)}
+                  >
+                    Remove
                   </Button>
                 </ActionCell>
               </Td>

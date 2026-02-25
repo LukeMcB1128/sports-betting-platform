@@ -116,6 +116,10 @@ const Dashboard: React.FC = () => {
     );
   };
 
+  const handleRemove = (gameId: string) => {
+    setGames((prev) => prev.filter((g) => g.id !== gameId));
+  };
+
   const liveCount = games.filter((g) => g.status === 'live').length;
   const upcomingCount = games.filter((g) => g.status === 'upcoming').length;
   const finalCount = games.filter((g) => g.status === 'final').length;
@@ -153,6 +157,7 @@ const Dashboard: React.FC = () => {
         onSetLines={setEditLinesGame}
         onUpdateStatus={handleUpdateStatus}
         onUpdateOdds={handleSaveLines}
+        onRemove={handleRemove}
       />
 
       {showAddGame && (

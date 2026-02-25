@@ -45,6 +45,23 @@ const NavLink = styled.a<{ active?: boolean }>`
   }
 `;
 
+const AdminLink = styled.a`
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: ${colors.textMuted};
+  border: 1px solid ${colors.border};
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+
+  &:hover {
+    background-color: ${colors.surfaceHover};
+    color: ${colors.text};
+    border-color: ${colors.textMuted};
+  }
+`;
+
 const BalanceChip = styled.div`
   display: flex;
   align-items: center;
@@ -72,6 +89,9 @@ const NavBar: React.FC = () => {
         <NavLink href="/" active>Games</NavLink>
         <NavLink href="/bets">My Bets</NavLink>
       </NavLinks>
+      <AdminLink href="http://localhost:3001" target="_blank" rel="noreferrer">
+        Admin
+      </AdminLink>
       <BalanceChip>
         <BalanceLabel>Balance</BalanceLabel>
         $1,000.00
