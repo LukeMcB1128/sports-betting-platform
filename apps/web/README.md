@@ -1,46 +1,115 @@
-# Getting Started with Create React App
+# apps/web — Bettor-Facing Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React + TypeScript frontend for bettors. Displays available games with moneyline and spread odds, and reflects changes made in the admin panel in real time.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Tech Stack
 
-### `npm start`
+| | |
+|---|---|
+| Framework | React 19 + TypeScript (Create React App) |
+| Styling | Styled Components |
+| State | React hooks + localStorage |
+| Real-time sync | Browser `storage` event (see below) |
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+---
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Getting Started
 
-### `npm test`
+```bash
+cd apps/web
+npm install
+npm start        # → http://localhost:3000
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Folder Structure
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```
+src/
+  components/
+    NavBar.tsx        Sticky top nav — logo, links, balance chip, Admin shortcut
+    GameCard.tsx      Game matchup card with moneyline + spread odds buttons
+    OddsButton.tsx    Clickable odds pill, toggles selected state on click
+  hooks/
+    useGames.ts       Reads games from localStorage, re-renders on storage events
+  pages/
+    Home.tsx          Games lobby — groups by Live / League, empty state fallback
+  styles/
+    GlobalStyles.ts   Global CSS reset + dark sportsbook color palette
+  types/
+    index.ts          Shared TypeScript interfaces (Game, GameOdds, etc.)
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+---
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Admin Sync — How It Works
 
-### `npm run eject`
+Games are authored in the admin panel (`apps/admin`) and shared with this app through the browser's `localStorage`. No backend is required for this to work.
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+### Flow
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```
+Admin tab                          Web tab (this app)
+─────────────────────────────────────────────────────
+User adds/edits/removes a game
+        ↓
+  localStorage["sbp_games"] = JSON
+                                         ↓
+                              browser fires `storage` event
+                              (native — fires in all other tabs
+                               on the same origin)
+                                         ↓
+                              useGames hook calls setGames()
+                                         ↓
+                              Home re-renders instantly
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Key files
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+| File | Role |
+|---|---|
+| `src/hooks/useGames.ts` | Reads `sbp_games` from localStorage on mount. Attaches a `window.addEventListener('storage', ...)` listener that updates state whenever the admin writes a new value. Returns the current games array. |
+| `src/pages/Home.tsx` | Calls `useGames(fallback)`. Filters out `final` games (only `upcoming` and `live` are shown). Groups games into sections: **Live Now** first, then by league. |
 
-## Learn More
+### localStorage key
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+sbp_games  →  JSON array of Game objects
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Both apps share the same key name (`sbp_games`). The admin writes it; the web app reads it.
+
+### Why `storage` events?
+
+The browser's `storage` event fires in every tab that shares the same origin **except** the tab that made the write. This means:
+
+- Admin writes → web tab receives the event automatically
+- No polling, no websocket, no server needed at this stage
+- When a real API is added later, `useGames` can be swapped out to fetch from the API instead, with zero changes needed elsewhere in the app
+
+### Fallback behaviour
+
+If `sbp_games` doesn't exist in localStorage (i.e. the admin has never been opened in this browser), the web app shows an empty state with a prompt to add games from the admin panel.
+
+---
+
+## Routing
+
+Routing is not yet implemented (no `react-router-dom`). The app currently renders the Home page directly. Pages for game detail, login, register, and bet history are planned — see `PLAN.md`.
+
+---
+
+## Color Theme
+
+Dark sportsbook palette defined in `src/styles/GlobalStyles.ts`:
+
+| Token | Hex | Usage |
+|---|---|---|
+| `bg` | `#0f1117` | Page background |
+| `surface` | `#1a1d27` | Cards, nav |
+| `accent` | `#3b82f6` | Blue — primary actions, selected odds |
+| `live` | `#ef4444` | Red — LIVE badge |
+| `positive` | `#22c55e` | Green — positive (underdog) odds |
