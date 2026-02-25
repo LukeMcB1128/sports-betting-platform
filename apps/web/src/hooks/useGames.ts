@@ -1,44 +1,41 @@
 import { useState, useEffect } from 'react';
 import { Game } from '../types';
 
-export const GAMES_STORAGE_KEY = 'sbp_games';
-
-const readGames = (): Game[] | null => {
-  try {
-    const raw = localStorage.getItem(GAMES_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Game[]) : null;
-  } catch {
-    return null;
-  }
-};
+const API_BASE = 'http://localhost:3002';
+const POLL_INTERVAL_MS = 3000;
 
 /**
- * Returns the current games list sourced from localStorage (written by the admin app).
- * Automatically re-renders when the admin makes changes in another tab via the
- * browser's native `storage` event.
+ * Fetches games from the shared dev API server (infra/dev-server.js) and
+ * re-polls every 3 seconds so the homepage stays in sync with admin changes.
+ *
+ * Falls back to `fallback` if the dev server is not reachable.
+ * Swap the fetch call for your real API endpoint when the .NET backend is ready.
  */
 const useGames = (fallback: Game[]): Game[] => {
-  const [games, setGames] = useState<Game[]>(() => readGames() ?? fallback);
+  const [games, setGames] = useState<Game[]>(fallback);
 
   useEffect(() => {
-    // Sync if localStorage already has data when the web app first mounts
-    const stored = readGames();
-    if (stored) setGames(stored);
+    let cancelled = false;
 
-    // Re-render whenever the admin writes to localStorage from another tab
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === GAMES_STORAGE_KEY) {
-        try {
-          const updated = e.newValue ? (JSON.parse(e.newValue) as Game[]) : [];
-          setGames(updated);
-        } catch {
-          // ignore malformed data
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/games`);
+        if (res.ok && !cancelled) {
+          const data: Game[] = await res.json();
+          setGames(data);
         }
+      } catch {
+        // Dev server not running — keep current state (fallback on first run)
       }
     };
 
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    poll(); // fetch immediately on mount
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   return games;
