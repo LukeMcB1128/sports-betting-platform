@@ -2,6 +2,10 @@ import React from 'react';
 import styled from 'styled-components';
 import { colors } from '../styles/GlobalStyles';
 
+interface NavBarProps {
+  balance: number | null;
+}
+
 const Nav = styled.nav`
   position: sticky;
   top: 0;
@@ -81,7 +85,10 @@ const BalanceLabel = styled.span`
   font-size: 12px;
 `;
 
-const NavBar: React.FC = () => {
+const formatBalance = (n: number): string =>
+  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+const NavBar: React.FC<NavBarProps> = ({ balance }) => {
   return (
     <Nav>
       <Logo>CTXSB</Logo>
@@ -94,7 +101,7 @@ const NavBar: React.FC = () => {
       </AdminLink>
       <BalanceChip>
         <BalanceLabel>Balance</BalanceLabel>
-        $1,000.00
+        {balance !== null ? `$${formatBalance(balance)}` : '—'}
       </BalanceChip>
     </Nav>
   );

@@ -102,7 +102,12 @@ const EmptyTitle = styled.p`
   margin-bottom: 8px;
 `;
 
-const Home: React.FC = () => {
+interface HomeProps {
+  balance: number;
+  onBalanceChange: (newBalance: number) => void;
+}
+
+const Home: React.FC<HomeProps> = ({ balance, onBalanceChange }) => {
   const games = useGames(FALLBACK_GAMES);
   const groups = groupGames(games);
 
@@ -124,7 +129,12 @@ const Home: React.FC = () => {
             </SectionHeader>
             <GameGrid>
               {groupGames.map((game) => (
-                <GameCard key={game.id} game={game} />
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  balance={balance}
+                  onBalanceChange={onBalanceChange}
+                />
               ))}
             </GameGrid>
           </Section>

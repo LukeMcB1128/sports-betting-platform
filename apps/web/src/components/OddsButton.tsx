@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import styled, { css } from 'styled-components';
 import { colors } from '../styles/GlobalStyles';
 
 interface OddsButtonProps {
   label: string;    // e.g. "KC -3.5"
   odds: number;     // e.g. -110
+  selected?: boolean;
+  onSelect?: () => void;
   disabled?: boolean;
 }
 
@@ -59,11 +61,9 @@ const OddsValue = styled.span<{ positive: boolean }>`
   margin-top: 2px;
 `;
 
-const OddsButton: React.FC<OddsButtonProps> = ({ label, odds, disabled }) => {
-  const [selected, setSelected] = useState(false);
-
+const OddsButton: React.FC<OddsButtonProps> = ({ label, odds, selected = false, onSelect, disabled }) => {
   const handleClick = () => {
-    if (!disabled) setSelected((s) => !s);
+    if (!disabled && onSelect) onSelect();
   };
 
   return (
