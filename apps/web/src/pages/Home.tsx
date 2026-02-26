@@ -18,8 +18,9 @@ const groupGames = (games: Game[]): GroupedGames => {
   visible
     .filter((g) => g.status !== 'live' && g.status !== 'resolving' && g.status !== 'final')
     .forEach((g) => {
-      if (!byLeague[g.league]) byLeague[g.league] = [];
-      byLeague[g.league].push(g);
+      const key = `${g.sport} - ${g.league}`;
+      if (!byLeague[key]) byLeague[key] = [];
+      byLeague[key].push(g);
     });
 
   const groups: GroupedGames = [];
@@ -27,7 +28,17 @@ const groupGames = (games: Game[]): GroupedGames => {
   Object.entries(byLeague).forEach(([league, gs]) => {
     groups.push({ label: league, games: gs });
   });
-  if (finished.length) groups.push({ label: 'Finished', games: finished });
+  // old way of filtering, changing to a new way that shows sport as well
+  //if (finished.length) groups.push({ label: 'Finished', games: finished });
+  const byFinished: Record<string, Game[]>={};
+  finished.forEach((g)=> {
+    const key = `${g.sport} - ${g.league}`;
+    if (!byFinished[key]) byFinished[key] = [];
+    byFinished[key].push(g);
+  });
+  Object.entries(byFinished).forEach(([key, gs]) => {
+    groups.push({ label: `Finished - ${key}`, games: gs });
+  });
   return groups;
 };
 
@@ -102,7 +113,7 @@ const Home: React.FC = () => {
       {groups.length === 0 ? (
         <EmptyState>
           <EmptyTitle>No games available</EmptyTitle>
-          <p>Check back soon or add games from the Admin panel.</p>
+          <p>Check back soon.</p>
         </EmptyState>
       ) : (
         groups.map(({ label, games: groupGames }) => (
