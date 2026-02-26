@@ -45,6 +45,7 @@ export interface Game {
   homeScore?: number;
   awayScore?: number;
   odds: GameOdds;
+  bettingEnabled: boolean;
 }
 
 // Form shapes (all strings before parsing)
