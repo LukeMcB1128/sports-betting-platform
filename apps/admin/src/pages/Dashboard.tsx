@@ -131,8 +131,9 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const liveCount = games.filter((g) => g.status === 'live').length;
   const upcomingCount = games.filter((g) => g.status === 'upcoming').length;
+  const liveCount = games.filter((g) => g.status === 'live').length;
+  const resolvingCount = games.filter((g) => g.status === 'resolving').length;
   const finalCount = games.filter((g) => g.status === 'final').length;
 
   return (
@@ -154,12 +155,16 @@ const Dashboard: React.FC = () => {
             <StatLabel>Total</StatLabel>
           </StatCard>
           <StatCard>
+            <StatValue>{upcomingCount}</StatValue>
+            <StatLabel>Upcoming</StatLabel>
+          </StatCard>
+          <StatCard>
             <StatValue style={{ color: colors.live }}>{liveCount}</StatValue>
             <StatLabel>Live</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue>{upcomingCount}</StatValue>
-            <StatLabel>Upcoming</StatLabel>
+            <StatValue>{resolvingCount}</StatValue>
+            <StatLabel>Resolving</StatLabel>
           </StatCard>
           <StatCard>
             <StatValue style={{ color: colors.textMuted }}>{finalCount}</StatValue>

@@ -63,16 +63,16 @@ const TeamRow = styled.div`
   justify-content: space-between;
 `;
 
-const TeamName = styled.span<{ home?: boolean }>`
+const TeamName = styled.span<{ winner?: boolean }>`
   font-size: 15px;
   font-weight: 600;
-  color: ${colors.text};
+  color: ${({ winner }) => winner ? colors.text : colors.textMuted};
 `;
 
-const Score = styled.span`
+const Score = styled.span<{ winner?: boolean }>`
   font-size: 15px;
   font-weight: 700;
-  color: ${colors.text};
+  color: ${({ winner }) => winner ? colors.text : colors.textMuted};
   min-width: 20px;
   text-align: right;
 `;
@@ -121,7 +121,12 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
   const isLive = game.status === 'live';
   const isResolving = game.status === 'resolving';
   const isFinal = game.status === 'final';
-  const showScore = isLive || isResolving;
+  const showScore = isLive || isResolving || isFinal;
+
+  const awayScore = game.awayScore ?? 0;
+  const homeScore = game.homeScore ?? 0;
+  const awayWon = isFinal && awayScore > homeScore;
+  const homeWon = isFinal && homeScore > awayScore;
 
   const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? 'Final' : formatTime(game.startTime);
 
@@ -135,12 +140,12 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
 
       <CardBody>
         <TeamRow>
-          <TeamName>{game.awayTeam}</TeamName>
-          {showScore && <Score>{game.awayScore ?? 0}</Score>}
+          <TeamName winner={!isFinal || awayWon}>{game.awayTeam}</TeamName>
+          {showScore && <Score winner={!isFinal || awayWon}>{awayScore}</Score>}
         </TeamRow>
         <TeamRow>
-          <TeamName>{game.homeTeam}</TeamName>
-          {showScore && <Score>{game.homeScore ?? 0}</Score>}
+          <TeamName winner={!isFinal || homeWon}>{game.homeTeam}</TeamName>
+          {showScore && <Score winner={!isFinal || homeWon}>{homeScore}</Score>}
         </TeamRow>
 
         {!isFinal && !isResolving && (

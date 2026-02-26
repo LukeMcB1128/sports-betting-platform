@@ -13,10 +13,10 @@ interface AddGameModalProps {
 
 const SPORTS = ['Basketball', 'Football', 'Baseball', 'Soccer'];
 const LEAGUES: Record<string, string[]> = {
-  Basketball: ['Regular Season', 'Tournament', 'Playoffs', 'Preseason'],
-  Football: ['Regular Season', 'Playoffs', 'Scrimmage'],
-  Baseball: ['Regular Season', 'Tournament', 'Playoffs', 'Preseason'],
-  Soccer: ['Regular Season', 'Tournament', 'Playoffs', 'Scrimmage'],
+  Basketball: ['Season', 'Tournament', 'Playoffs', 'Preseason'],
+  Football: ['Season', 'Playoffs', 'Scrimmage'],
+  Baseball: ['Season', 'Tournament', 'Playoffs', 'Preseason'],
+  Soccer: ['Season', 'Tournament', 'Playoffs', 'Scrimmage'],
 };
 
 const Form = styled.form`
@@ -68,7 +68,7 @@ type Errors = Partial<Record<keyof AddGameFormData, string>>;
 
 const DEFAULT_FORM: AddGameFormData = {
   sport: 'Basketball',
-  league: 'Regular Season',
+  league: 'Season',
   homeTeam: '',
   awayTeam: '',
   startDate: '',
