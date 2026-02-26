@@ -185,6 +185,7 @@ const GamesTable: React.FC<GamesTableProps> = ({
         {header}
         <tbody>
           {games.map((game) => {
+            const isLive = game.status === 'live';
             const isResolving = game.status === 'resolving';
             const isFinal = game.status === 'final';
             const hasScore = game.awayScore !== undefined && game.homeScore !== undefined;
@@ -260,7 +261,7 @@ const GamesTable: React.FC<GamesTableProps> = ({
                     </Button>
 
                     {/* Enter Score — only available in resolving stage */}
-                    {isResolving && (
+                    {(isLive ||isResolving) && (
                       <Button
                         size="sm"
                         variant="primary"
@@ -274,7 +275,7 @@ const GamesTable: React.FC<GamesTableProps> = ({
                       size="sm"
                       variant="ghost"
                       onClick={() => onSetLines(game)}
-                      disabled={isResolving || isFinal}
+                      disabled={isLive || isResolving || isFinal}
                     >
                       Set Lines
                     </Button>
