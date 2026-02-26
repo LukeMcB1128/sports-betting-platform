@@ -255,7 +255,8 @@ const GamesTable: React.FC<GamesTableProps> = ({
                       size="sm"
                       variant={game.published ? 'ghost' : 'primary'}
                       onClick={() => onTogglePublish(game.id, !game.published)}
-                      disabled={isFinal}
+                      disabled={isResolving}
+                      // dont let game be disabled while resolving, can be taken down mid game if changes is needed
                     >
                       {game.published ? 'Unpublish' : 'Publish'}
                     </Button>

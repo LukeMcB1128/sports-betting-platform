@@ -68,7 +68,7 @@ type Errors = Partial<Record<keyof AddGameFormData, string>>;
 
 const DEFAULT_FORM: AddGameFormData = {
   sport: 'Basketball',
-  league: 'Regular Season',
+  league: 'Season',
   homeTeam: '',
   awayTeam: '',
   startDate: '',
