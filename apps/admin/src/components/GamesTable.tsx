@@ -11,6 +11,7 @@ interface GamesTableProps {
   onUpdateOdds: (gameId: string, odds: GameOdds) => void;
   onRemove: (gameId: string) => void;
   onTogglePublish: (gameId: string, published: boolean) => void;
+  onEnterScore: (game: Game) => void;
 }
 
 const TableWrap = styled.div`
@@ -22,7 +23,7 @@ const TableWrap = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 800px;
+  min-width: 860px;
 `;
 
 const Th = styled.th`
@@ -46,15 +47,11 @@ const Td = styled.td`
   border-bottom: 1px solid ${colors.border};
   vertical-align: middle;
 
-  tr:last-child & {
-    border-bottom: none;
-  }
+  tr:last-child & { border-bottom: none; }
 `;
 
 const Tr = styled.tr`
-  &:hover td {
-    background-color: ${colors.surfaceHover};
-  }
+  &:hover td { background-color: ${colors.surfaceHover}; }
 `;
 
 const Matchup = styled.div`
@@ -72,6 +69,13 @@ const TeamName = styled.span`
 const AwayLabel = styled.span`
   font-size: 10px;
   color: ${colors.textMuted};
+`;
+
+const ScoreInline = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  color: ${colors.text};
+  margin-left: 6px;
 `;
 
 const LeagueBadge = styled.span`
@@ -144,7 +148,7 @@ const EmptyCell = styled.td`
 const COLS = 7;
 
 const GamesTable: React.FC<GamesTableProps> = ({
-  games, onSetLines, onUpdateStatus, onRemove, onTogglePublish,
+  games, onSetLines, onUpdateStatus, onRemove, onTogglePublish, onEnterScore,
 }) => {
   const header = (
     <thead>
@@ -180,81 +184,112 @@ const GamesTable: React.FC<GamesTableProps> = ({
       <Table>
         {header}
         <tbody>
-          {games.map((game) => (
-            <Tr key={game.id}>
-              {/* Matchup */}
-              <Td>
-                <Matchup>
-                  <div><AwayLabel>AWAY </AwayLabel><TeamName>{game.awayTeam}</TeamName></div>
-                  <div><AwayLabel>HOME </AwayLabel><TeamName>{game.homeTeam}</TeamName></div>
-                </Matchup>
-              </Td>
+          {games.map((game) => {
+            const isResolving = game.status === 'resolving';
+            const isFinal = game.status === 'final';
+            const hasScore = game.awayScore !== undefined && game.homeScore !== undefined;
 
-              {/* League */}
-              <Td><LeagueBadge>{game.league}</LeagueBadge></Td>
+            return (
+              <Tr key={game.id}>
+                {/* Matchup — show score inline when resolving or final */}
+                <Td>
+                  <Matchup>
+                    <div>
+                      <AwayLabel>AWAY </AwayLabel>
+                      <TeamName>{game.awayTeam}</TeamName>
+                      {(isResolving || isFinal) && hasScore && (
+                        <ScoreInline>{game.awayScore}</ScoreInline>
+                      )}
+                    </div>
+                    <div>
+                      <AwayLabel>HOME </AwayLabel>
+                      <TeamName>{game.homeTeam}</TeamName>
+                      {(isResolving || isFinal) && hasScore && (
+                        <ScoreInline>{game.homeScore}</ScoreInline>
+                      )}
+                    </div>
+                  </Matchup>
+                </Td>
 
-              {/* Start time */}
-              <Td style={{ whiteSpace: 'nowrap', fontSize: 12, color: colors.textMuted }}>
-                {formatTime(game.startTime)}
-              </Td>
+                {/* League */}
+                <Td><LeagueBadge>{game.league}</LeagueBadge></Td>
 
-              {/* Lines summary */}
-              <Td>
-                <OddsSummary>
-                  <OddsLine>ML: {formatOdds(game.odds.moneyline.away)} / {formatOdds(game.odds.moneyline.home)}</OddsLine>
-                  <OddsLine>SPR: {formatOdds(game.odds.spread.away.line)} ({formatOdds(game.odds.spread.away.juice)}) / {formatOdds(game.odds.spread.home.line)} ({formatOdds(game.odds.spread.home.juice)})</OddsLine>
-                </OddsSummary>
-              </Td>
+                {/* Start time */}
+                <Td style={{ whiteSpace: 'nowrap', fontSize: 12, color: colors.textMuted }}>
+                  {formatTime(game.startTime)}
+                </Td>
 
-              {/* Game status */}
-              <Td>
-                <StatusSelect
-                  value={game.status}
-                  onChange={(e) => onUpdateStatus(game.id, e.target.value as GameStatus)}
-                >
-                  <option value="upcoming">Upcoming</option>
-                  <option value="live">Live</option>
-                  <option value="final">Final</option>
-                </StatusSelect>
-              </Td>
+                {/* Lines */}
+                <Td>
+                  <OddsSummary>
+                    <OddsLine>ML: {formatOdds(game.odds.moneyline.away)} / {formatOdds(game.odds.moneyline.home)}</OddsLine>
+                    <OddsLine>SPR: {formatOdds(game.odds.spread.away.line)} ({formatOdds(game.odds.spread.away.juice)}) / {formatOdds(game.odds.spread.home.line)} ({formatOdds(game.odds.spread.home.juice)})</OddsLine>
+                  </OddsSummary>
+                </Td>
 
-              {/* Publish status */}
-              <Td>
-                <PublishBadge published={game.published}>
-                  {game.published ? 'Published' : 'Draft'}
-                </PublishBadge>
-              </Td>
-
-              {/* Actions */}
-              <Td>
-                <ActionCell>
-                  <Button
-                    size="sm"
-                    variant={game.published ? 'ghost' : 'primary'}
-                    onClick={() => onTogglePublish(game.id, !game.published)}
-                    disabled={game.status === 'final'}
+                {/* Status dropdown */}
+                <Td>
+                  <StatusSelect
+                    value={game.status}
+                    onChange={(e) => onUpdateStatus(game.id, e.target.value as GameStatus)}
                   >
-                    {game.published ? 'Unpublish' : 'Publish'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => onSetLines(game)}
-                    disabled={game.status === 'final'}
-                  >
-                    Set Lines
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => onRemove(game.id)}
-                  >
-                    Remove
-                  </Button>
-                </ActionCell>
-              </Td>
-            </Tr>
-          ))}
+                    <option value="upcoming">Upcoming</option>
+                    <option value="live">Live</option>
+                    <option value="resolving">Resolving</option>
+                    <option value="final">Final</option>
+                  </StatusSelect>
+                </Td>
+
+                {/* Visibility */}
+                <Td>
+                  <PublishBadge published={game.published}>
+                    {game.published ? 'Published' : 'Draft'}
+                  </PublishBadge>
+                </Td>
+
+                {/* Actions */}
+                <Td>
+                  <ActionCell>
+                    <Button
+                      size="sm"
+                      variant={game.published ? 'ghost' : 'primary'}
+                      onClick={() => onTogglePublish(game.id, !game.published)}
+                      disabled={isFinal}
+                    >
+                      {game.published ? 'Unpublish' : 'Publish'}
+                    </Button>
+
+                    {/* Enter Score — only available in resolving stage */}
+                    {isResolving && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => onEnterScore(game)}
+                      >
+                        {hasScore ? 'Edit Score' : 'Enter Score'}
+                      </Button>
+                    )}
+
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onSetLines(game)}
+                      disabled={isResolving || isFinal}
+                    >
+                      Set Lines
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => onRemove(game.id)}
+                    >
+                      Remove
+                    </Button>
+                  </ActionCell>
+                </Td>
+              </Tr>
+            );
+          })}
         </tbody>
       </Table>
     </TableWrap>

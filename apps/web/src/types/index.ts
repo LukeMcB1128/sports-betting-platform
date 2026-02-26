@@ -1,4 +1,4 @@
-export type GameStatus = 'upcoming' | 'live' | 'final';
+export type GameStatus = 'upcoming' | 'live' | 'resolving' | 'final';
 
 export type BetType = 'moneyline' | 'spread';
 

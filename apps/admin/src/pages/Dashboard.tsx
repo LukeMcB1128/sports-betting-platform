@@ -5,6 +5,7 @@ import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import AddGameModal from '../components/AddGameModal';
 import SetLinesModal from '../components/SetLinesModal';
+import EnterScoreModal from '../components/EnterScoreModal';
 import Button from '../components/Button';
 import {
   fetchGames,
@@ -12,6 +13,7 @@ import {
   updateGameStatus,
   updateGameOdds,
   togglePublishGame,
+  updateGameScore,
   removeGame,
 } from '../api/gamesApi';
 
@@ -82,6 +84,7 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showAddGame, setShowAddGame] = useState(false);
   const [editLinesGame, setEditLinesGame] = useState<Game | null>(null);
+  const [enterScoreGame, setEnterScoreGame] = useState<Game | null>(null);
 
   useEffect(() => {
     fetchGames()
@@ -119,6 +122,13 @@ const Dashboard: React.FC = () => {
   const handleRemove = async (gameId: string) => {
     await removeGame(gameId);
     setGames((prev) => prev.filter((g) => g.id !== gameId));
+  };
+
+  const handleEnterScore = async (gameId: string, awayScore: number, homeScore: number) => {
+    await updateGameScore(gameId, awayScore, homeScore);
+    setGames((prev) =>
+      prev.map((g) => (g.id === gameId ? { ...g, awayScore, homeScore } : g))
+    );
   };
 
   const liveCount = games.filter((g) => g.status === 'live').length;
@@ -165,6 +175,7 @@ const Dashboard: React.FC = () => {
         onUpdateOdds={handleSaveLines}
         onTogglePublish={handleTogglePublish}
         onRemove={handleRemove}
+        onEnterScore={setEnterScoreGame}
       />
 
       {showAddGame && (
@@ -179,6 +190,14 @@ const Dashboard: React.FC = () => {
           game={editLinesGame}
           onClose={() => setEditLinesGame(null)}
           onSave={handleSaveLines}
+        />
+      )}
+
+      {enterScoreGame && (
+        <EnterScoreModal
+          game={enterScoreGame}
+          onClose={() => setEnterScoreGame(null)}
+          onSave={handleEnterScore}
         />
       )}
     </Page>

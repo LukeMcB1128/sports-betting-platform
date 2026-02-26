@@ -40,6 +40,16 @@ const LiveBadge = styled.span`
   letter-spacing: 0.5px;
 `;
 
+const ResolvingBadge = styled.span`
+  background-color: #f59e0b;
+  color: #000;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+`;
+
 const CardBody = styled.div`
   padding: 12px 14px;
   display: flex;
@@ -109,26 +119,31 @@ const formatSpreadLabel = (team: string, line: number): string => {
 
 const GameCard: React.FC<GameCardProps> = ({ game }) => {
   const isLive = game.status === 'live';
+  const isResolving = game.status === 'resolving';
   const isFinal = game.status === 'final';
+  const showScore = isLive || isResolving;
+
+  const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? 'Final' : formatTime(game.startTime);
 
   return (
     <Card>
       <CardHeader>
-        <GameMeta>{game.league} · {isLive ? 'Live' : isFinal ? 'Final' : formatTime(game.startTime)}</GameMeta>
+        <GameMeta>{game.league} · {metaTime}</GameMeta>
         {isLive && <LiveBadge>LIVE</LiveBadge>}
+        {isResolving && <ResolvingBadge>RESOLVING</ResolvingBadge>}
       </CardHeader>
 
       <CardBody>
         <TeamRow>
           <TeamName>{game.awayTeam}</TeamName>
-          {isLive && <Score>{game.awayScore ?? 0}</Score>}
+          {showScore && <Score>{game.awayScore ?? 0}</Score>}
         </TeamRow>
         <TeamRow>
           <TeamName>{game.homeTeam}</TeamName>
-          {isLive && <Score>{game.homeScore ?? 0}</Score>}
+          {showScore && <Score>{game.homeScore ?? 0}</Score>}
         </TeamRow>
 
-        {!isFinal && (
+        {!isFinal && !isResolving && (
           <>
             <Divider />
             <MarketsRow>
@@ -154,6 +169,13 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
                 </OddsRow>
               </MarketGroup>
             </MarketsRow>
+          </>
+        )}
+
+        {isResolving && (
+          <>
+            <Divider />
+            <GameMeta style={{ fontSize: 11, color: '#f59e0b' }}>Betting closed — awaiting final score</GameMeta>
           </>
         )}
       </CardBody>

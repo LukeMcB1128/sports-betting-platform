@@ -13,10 +13,10 @@ type GroupedGames = { label: string; games: Game[] }[];
 const groupGames = (games: Game[]): GroupedGames => {
   // Only show published, non-final games to bettors
   const visible = games.filter((g) => g.published && g.status !== 'final');
-  const live = visible.filter((g) => g.status === 'live');
+  const live = visible.filter((g) => g.status === 'live' || g.status === 'resolving');
   const byLeague: Record<string, Game[]> = {};
   visible
-    .filter((g) => g.status !== 'live')
+    .filter((g) => g.status !== 'live' && g.status !== 'resolving')
     .forEach((g) => {
       if (!byLeague[g.league]) byLeague[g.league] = [];
       byLeague[g.league].push(g);
