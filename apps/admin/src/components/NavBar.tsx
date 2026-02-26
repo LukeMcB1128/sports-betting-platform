@@ -39,7 +39,7 @@ const Spacer = styled.div`
 
 const NavBar: React.FC = () => (
   <Nav>
-    <Logo>SBP</Logo>
+    <Logo>CTXSB</Logo>
     <AdminBadge>Admin</AdminBadge>
     <Spacer />
   </Nav>

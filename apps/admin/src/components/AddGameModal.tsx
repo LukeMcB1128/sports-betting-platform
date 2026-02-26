@@ -162,6 +162,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({ onClose, onAdd }) => {
           home: { line: parseSpreadLine(form.spreadHomeLine)!, juice: parseOdds(form.spreadHomeJuice)! },
         },
       },
+      bettingEnabled: true,
     };
 
     onAdd(newGame);

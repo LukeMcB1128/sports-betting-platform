@@ -11,7 +11,7 @@ React + TypeScript admin panel for managing games and odds. Intended for interna
 | Framework | React 19 + TypeScript (Create React App) |
 | Styling | Styled Components |
 | State | React hooks + localStorage |
-| Sync | Browser `localStorage` (read by the web app in real time) |
+| Sync | Connects to dev-server.js to update (read by the web app in real time(within 3 seconds)) |
 
 ---
 
