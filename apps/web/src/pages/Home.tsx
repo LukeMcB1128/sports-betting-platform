@@ -11,12 +11,12 @@ const FALLBACK_GAMES: Game[] = [];
 type GroupedGames = { label: string; games: Game[] }[];
 
 const groupGames = (games: Game[]): GroupedGames => {
-  // Only show published, non-final games to bettors
-  const visible = games.filter((g) => g.published && g.status !== 'final');
+  const visible = games.filter((g) => g.published);
   const live = visible.filter((g) => g.status === 'live' || g.status === 'resolving');
+  const finished = visible.filter((g) => g.status === 'final');
   const byLeague: Record<string, Game[]> = {};
   visible
-    .filter((g) => g.status !== 'live' && g.status !== 'resolving')
+    .filter((g) => g.status !== 'live' && g.status !== 'resolving' && g.status !== 'final')
     .forEach((g) => {
       if (!byLeague[g.league]) byLeague[g.league] = [];
       byLeague[g.league].push(g);
@@ -27,6 +27,7 @@ const groupGames = (games: Game[]): GroupedGames => {
   Object.entries(byLeague).forEach(([league, gs]) => {
     groups.push({ label: league, games: gs });
   });
+  if (finished.length) groups.push({ label: 'Finished', games: finished });
   return groups;
 };
 
