@@ -84,7 +84,7 @@ const BalanceLabel = styled.span`
 const NavBar: React.FC = () => {
   return (
     <Nav>
-      <Logo>SBP</Logo>
+      <Logo>CTXSB</Logo>
       <NavLinks>
         <NavLink href="/" active>Games</NavLink>
         <NavLink href="/bets">My Bets</NavLink>

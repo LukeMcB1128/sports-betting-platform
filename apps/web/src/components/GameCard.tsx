@@ -148,7 +148,7 @@ const GameCard: React.FC<GameCardProps> = ({ game }) => {
           {showScore && <Score winner={!isFinal || homeWon}>{homeScore}</Score>}
         </TeamRow>
 
-        {!isFinal && !isResolving && (
+        {!isFinal && !isResolving && !isLive &&(
           <>
             <Divider />
             <MarketsRow>
