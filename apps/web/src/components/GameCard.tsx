@@ -200,7 +200,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
           {showScore && <Score winner={!isFinal || homeWon}>{homeScore}</Score>}
         </TeamRow>
 
-        {!isFinal && !isResolving && !isLive && (
+        {!isFinal && !isResolving && (
           <>
             <Divider />
 
