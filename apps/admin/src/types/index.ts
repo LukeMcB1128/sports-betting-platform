@@ -1,5 +1,22 @@
 export type GameStatus = 'upcoming' | 'live' | 'resolving' | 'final';
 
+export type BetType = 'moneyline' | 'spread';
+export type BetSide = 'home' | 'away';
+export type BetStatus = 'pending' | 'won' | 'lost' | 'void';
+
+export interface Bet {
+  id: string;
+  gameId: string;
+  betType: BetType;
+  side: BetSide;
+  label: string;
+  odds: number;
+  stake: number;
+  payout: number;
+  status: BetStatus;
+  placedAt: string; // ISO string
+}
+
 export interface SpreadSide {
   line: number;
   juice: number;
@@ -28,6 +45,7 @@ export interface Game {
   homeScore?: number;
   awayScore?: number;
   odds: GameOdds;
+  bettingEnabled: boolean;
 }
 
 // Form shapes (all strings before parsing)

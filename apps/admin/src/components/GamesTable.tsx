@@ -12,6 +12,7 @@ interface GamesTableProps {
   onRemove: (gameId: string) => void;
   onTogglePublish: (gameId: string, published: boolean) => void;
   onEnterScore: (game: Game) => void;
+  onEnableDisableBetting: (game: Game) => void;
 }
 
 const TableWrap = styled.div`
@@ -148,7 +149,7 @@ const EmptyCell = styled.td`
 const COLS = 7;
 
 const GamesTable: React.FC<GamesTableProps> = ({
-  games, onSetLines, onUpdateStatus, onRemove, onTogglePublish, onEnterScore,
+  games, onSetLines, onUpdateStatus, onRemove, onTogglePublish, onEnterScore, onEnableDisableBetting
 }) => {
   const header = (
     <thead>
@@ -261,7 +262,7 @@ const GamesTable: React.FC<GamesTableProps> = ({
                       {game.published ? 'Unpublish' : 'Publish'}
                     </Button>
 
-                    {/* Enter Score — only available in resolving stage */}
+                    {/* Enter Score */}
                     {(isLive ||isResolving) && (
                       <Button
                         size="sm"
@@ -269,6 +270,17 @@ const GamesTable: React.FC<GamesTableProps> = ({
                         onClick={() => onEnterScore(game)}
                       >
                         {hasScore ? 'Edit Score' : 'Enter Score'}
+                      </Button>
+                    )}
+
+                    {/* Enable / Disable Betting — available for any non-final game */}
+                    {!isFinal && (
+                      <Button
+                        size="sm"
+                        variant={game.bettingEnabled ? 'ghost' : 'primary'}
+                        onClick={() => onEnableDisableBetting(game)}
+                      >
+                        {game.bettingEnabled ? 'Disable Betting' : 'Enable Betting'}
                       </Button>
                     )}
 

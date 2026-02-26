@@ -62,6 +62,16 @@ export const updateGameScore = async (
   return res.json();
 };
 
+export const updateBettingEnabled = async (id: string, bettingEnabled: boolean): Promise<Game> => {
+  const res = await fetch(`${API_BASE}/games/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bettingEnabled }),
+  });
+  if (!res.ok) throw new Error('Failed to update betting status');
+  return res.json();
+};
+
 export const removeGame = async (id: string): Promise<void> => {
   const res = await fetch(`${API_BASE}/games/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to remove game');
