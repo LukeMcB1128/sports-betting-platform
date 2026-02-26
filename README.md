@@ -71,6 +71,11 @@ cd apps/api
 dotnet run
 ```
 
+**Server**
+```bash
+node infra/dev-server.js
+```
+
 **Web**
 ```bash
 cd apps/web
