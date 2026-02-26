@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { Game, GameStatus, GameOdds } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
+import BetsPanel from '../components/BetsPanel';
 import AddGameModal from '../components/AddGameModal';
 import SetLinesModal from '../components/SetLinesModal';
 import EnterScoreModal from '../components/EnterScoreModal';
@@ -17,6 +18,8 @@ import {
   removeGame,
 } from '../api/gamesApi';
 
+type ActiveTab = 'games' | 'bets';
+
 const Page = styled.main`
   max-width: 1100px;
   margin: 0 auto;
@@ -27,7 +30,7 @@ const PageHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
   gap: 12px;
 `;
@@ -37,6 +40,33 @@ const PageTitle = styled.h1`
   font-weight: 700;
   color: ${colors.text};
 `;
+
+// ─── Tab bar ─────────────────────────────────────────────────────────────────
+
+const TabBar = styled.div`
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid ${colors.border};
+  margin-bottom: 24px;
+`;
+
+const Tab = styled.button<{ active: boolean }>`
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: ${({ active }) => (active ? colors.accent : colors.textMuted)};
+  border-bottom: 2px solid ${({ active }) => (active ? colors.accent : 'transparent')};
+  margin-bottom: -1px;
+  border-radius: 0;
+  transition: color 0.15s, border-color 0.15s;
+  background: none;
+
+  &:hover {
+    color: ${({ active }) => (active ? colors.accent : colors.text)};
+  }
+`;
+
+// ─── Stats / banners (games tab) ─────────────────────────────────────────────
 
 const StatsRow = styled.div`
   display: flex;
@@ -78,7 +108,10 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
   color: ${({ variant }) => variant === 'error' ? colors.danger : colors.textMuted};
 `;
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 const Dashboard: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<ActiveTab>('games');
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -139,50 +172,71 @@ const Dashboard: React.FC = () => {
   return (
     <Page>
       <PageHeader>
-        <PageTitle>Games</PageTitle>
-        <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
-          + Add Game
-        </Button>
+        <PageTitle>{activeTab === 'games' ? 'Games' : 'Bets'}</PageTitle>
+        {activeTab === 'games' && (
+          <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
+            + Add Game
+          </Button>
+        )}
       </PageHeader>
 
-      {loading && <Banner variant="loading">Loading games from dev server…</Banner>}
-      {error && <Banner variant="error">{error}</Banner>}
+      {/* Tab bar */}
+      <TabBar>
+        <Tab active={activeTab === 'games'} onClick={() => setActiveTab('games')}>
+          Games
+        </Tab>
+        <Tab active={activeTab === 'bets'} onClick={() => setActiveTab('bets')}>
+          Bets
+        </Tab>
+      </TabBar>
 
-      {!loading && !error && (
-        <StatsRow>
-          <StatCard>
-            <StatValue>{games.length}</StatValue>
-            <StatLabel>Total</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{upcomingCount}</StatValue>
-            <StatLabel>Upcoming</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue style={{ color: colors.live }}>{liveCount}</StatValue>
-            <StatLabel>Live</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{resolvingCount}</StatValue>
-            <StatLabel>Resolving</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue style={{ color: colors.textMuted }}>{finalCount}</StatValue>
-            <StatLabel>Final</StatLabel>
-          </StatCard>
-        </StatsRow>
+      {/* ── Games tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'games' && (
+        <>
+          {loading && <Banner variant="loading">Loading games from dev server…</Banner>}
+          {error && <Banner variant="error">{error}</Banner>}
+
+          {!loading && !error && (
+            <StatsRow>
+              <StatCard>
+                <StatValue>{games.length}</StatValue>
+                <StatLabel>Total</StatLabel>
+              </StatCard>
+              <StatCard>
+                <StatValue>{upcomingCount}</StatValue>
+                <StatLabel>Upcoming</StatLabel>
+              </StatCard>
+              <StatCard>
+                <StatValue style={{ color: colors.live }}>{liveCount}</StatValue>
+                <StatLabel>Live</StatLabel>
+              </StatCard>
+              <StatCard>
+                <StatValue>{resolvingCount}</StatValue>
+                <StatLabel>Resolving</StatLabel>
+              </StatCard>
+              <StatCard>
+                <StatValue style={{ color: colors.textMuted }}>{finalCount}</StatValue>
+                <StatLabel>Final</StatLabel>
+              </StatCard>
+            </StatsRow>
+          )}
+
+          <GamesTable
+            games={games}
+            onSetLines={setEditLinesGame}
+            onUpdateStatus={handleUpdateStatus}
+            onUpdateOdds={handleSaveLines}
+            onTogglePublish={handleTogglePublish}
+            onRemove={handleRemove}
+            onEnterScore={setEnterScoreGame}
+          />
+        </>
       )}
 
-      <GamesTable
-        games={games}
-        onSetLines={setEditLinesGame}
-        onUpdateStatus={handleUpdateStatus}
-        onUpdateOdds={handleSaveLines}
-        onTogglePublish={handleTogglePublish}
-        onRemove={handleRemove}
-        onEnterScore={setEnterScoreGame}
-      />
+      {/* ── Bets tab ──────────────────────────────────────────────────────── */}
+      {activeTab === 'bets' && <BetsPanel />}
 
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showAddGame && (
         <AddGameModal
           onClose={() => setShowAddGame(false)}

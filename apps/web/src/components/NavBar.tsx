@@ -89,12 +89,14 @@ const formatBalance = (n: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const NavBar: React.FC<NavBarProps> = ({ balance }) => {
+  const isMyBets = window.location.pathname === '/bets';
+
   return (
     <Nav>
       <Logo>CTXSB</Logo>
       <NavLinks>
-        <NavLink href="/" active>Games</NavLink>
-        <NavLink href="/bets">My Bets</NavLink>
+        <NavLink href="/" active={!isMyBets}>Games</NavLink>
+        <NavLink href="/bets" active={isMyBets}>My Bets</NavLink>
       </NavLinks>
       <AdminLink href="http://localhost:3001" target="_blank" rel="noreferrer">
         Admin
