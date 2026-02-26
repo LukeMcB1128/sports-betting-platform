@@ -273,11 +273,11 @@ const GamesTable: React.FC<GamesTableProps> = ({
                       </Button>
                     )}
 
-                    {/*Enable or disable betting*/}
-                    {(isLive || isResolving) && (
+                    {/* Enable / Disable Betting — available for any non-final game */}
+                    {!isFinal && (
                       <Button
                         size="sm"
-                        variant="primary"
+                        variant={game.bettingEnabled ? 'ghost' : 'primary'}
                         onClick={() => onEnableDisableBetting(game)}
                       >
                         {game.bettingEnabled ? 'Disable Betting' : 'Enable Betting'}

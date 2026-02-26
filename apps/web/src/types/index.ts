@@ -52,4 +52,5 @@ export interface Game {
   homeScore?: number;
   awayScore?: number;
   odds: GameOdds;
+  bettingEnabled?: boolean; // undefined treated as true for backward compat
 }

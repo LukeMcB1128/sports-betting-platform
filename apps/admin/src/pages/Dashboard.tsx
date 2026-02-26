@@ -15,6 +15,7 @@ import {
   updateGameOdds,
   togglePublishGame,
   updateGameScore,
+  updateBettingEnabled,
   removeGame,
 } from '../api/gamesApi';
 
@@ -118,7 +119,6 @@ const Dashboard: React.FC = () => {
   const [showAddGame, setShowAddGame] = useState(false);
   const [editLinesGame, setEditLinesGame] = useState<Game | null>(null);
   const [enterScoreGame, setEnterScoreGame] = useState<Game | null>(null);
-  const [enableDisableBetting, setEnableDisableBetting] = useState<Game | null>(null);
 
   useEffect(() => {
     fetchGames()
@@ -167,9 +167,10 @@ const Dashboard: React.FC = () => {
 
   const handleEnableDisableBetting = async (game: Game) => {
     const bettingEnabled = !game.bettingEnabled;
-    // await updateBettingEnabled(game.id, bettingEnabled); // add api call when ready.
+    await updateBettingEnabled(game.id, bettingEnabled);
     setGames((prev) =>
-      prev.map((g) => (g.id === game.id ?{...g, bettingEnabled} : g)));
+      prev.map((g) => (g.id === game.id ? { ...g, bettingEnabled } : g))
+    );
   };
 
   const upcomingCount = games.filter((g) => g.status === 'upcoming').length;
@@ -237,7 +238,7 @@ const Dashboard: React.FC = () => {
             onTogglePublish={handleTogglePublish}
             onRemove={handleRemove}
             onEnterScore={setEnterScoreGame}
-            onEnableDisableBetting={setEnableDisableBetting}
+            onEnableDisableBetting={handleEnableDisableBetting}
           />
         </>
       )}
