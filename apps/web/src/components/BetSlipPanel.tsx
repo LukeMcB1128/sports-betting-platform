@@ -10,6 +10,7 @@ interface BetSlipPanelProps {
   side: BetSide;
   label: string;
   odds: number;
+  line?: number; // spread line at time of selection (spread bets only)
   balance: number;
   onClose: () => void;
   onSuccess: (newBalance: number) => void;
@@ -201,7 +202,7 @@ const formatMoney = (n: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
-  gameId, betType, side, label, odds, balance, onClose, onSuccess,
+  gameId, betType, side, label, odds, line, balance, onClose, onSuccess,
 }) => {
   const [stakeStr, setStakeStr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -226,7 +227,7 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const result = await placeBet({ gameId, betType, side, label, odds, stake });
+      const result = await placeBet({ gameId, betType, side, label, odds, line, stake });
       setSuccess(true);
       setTimeout(() => {
         onSuccess(result.balance);

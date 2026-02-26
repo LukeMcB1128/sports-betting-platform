@@ -12,10 +12,12 @@
  * Routes:
  *   GET    /games          → return all games
  *   POST   /games          → add a game
- *   PUT    /games/:id      → update a game (partial merge)
+ *   PUT    /games/:id      → update a game (partial merge); auto-settles pending
+ *                            bets when game transitions to final with scores
  *   DELETE /games/:id      → remove a game
  *   GET    /bets           → return all bets
  *   POST   /bets           → place a bet (deducts from balance)
+ *   DELETE /bets/:id       → remove a bet record
  *   GET    /balance        → return current balance
  *
  * Replace with the real ASP.NET Core API when that is ready.
@@ -53,6 +55,61 @@ const calcPayout = (stake, odds) => {
   return parseFloat((stake + profit).toFixed(2));
 };
 
+/**
+ * Determine the outcome of a single pending bet given a final game result.
+ * Returns 'won', 'lost', or 'void' (push / tie).
+ */
+const settleBetOutcome = (bet, game) => {
+  const { awayScore, homeScore } = game;
+
+  if (bet.betType === 'moneyline') {
+    if (awayScore === homeScore) return 'void';
+    return bet.side === 'away'
+      ? (awayScore > homeScore ? 'won' : 'lost')
+      : (homeScore > awayScore ? 'won' : 'lost');
+  }
+
+  if (bet.betType === 'spread') {
+    // Use the line stored at bet-placement time (bet.line); fall back to the
+    // game's current spread if the bet pre-dates the line field.
+    let line = bet.line;
+    if (line == null) {
+      line = bet.side === 'away'
+        ? game.odds.spread.away.line
+        : game.odds.spread.home.line;
+    }
+    // +ve result means the bet side covered the spread
+    const margin = bet.side === 'away'
+      ? (awayScore + line) - homeScore
+      : (homeScore + line) - awayScore;
+
+    if (margin === 0) return 'void'; // push
+    return margin > 0 ? 'won' : 'lost';
+  }
+
+  return 'void';
+};
+
+/**
+ * Settle all pending bets for a game that has just reached final status.
+ * Credits won payouts (and void stakes) back to the balance.
+ */
+const settleGameBets = (game) => {
+  let settled = 0;
+  bets = bets.map((bet) => {
+    if (bet.gameId !== game.id || bet.status !== 'pending') return bet;
+    const newStatus = settleBetOutcome(bet, game);
+    if (newStatus === 'won')  balance = parseFloat((balance + bet.payout).toFixed(2));
+    if (newStatus === 'void') balance = parseFloat((balance + bet.stake).toFixed(2));
+    settled++;
+    console.log(`[SETTLE] ${bet.label} → ${newStatus.toUpperCase()}  balance=$${balance}`);
+    return { ...bet, status: newStatus };
+  });
+  if (settled > 0) {
+    console.log(`[SETTLE] ${settled} bet(s) settled for game ${game.id}`);
+  }
+};
+
 const server = http.createServer(async (req, res) => {
   // Apply CORS headers to every response
   Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
@@ -85,15 +142,15 @@ const server = http.createServer(async (req, res) => {
     // ── /bets ─────────────────────────────────────────────────────────────────
 
     // GET /bets
-    if (req.method === 'GET' && resource === 'bets') {
+    if (req.method === 'GET' && resource === 'bets' && !id) {
       res.writeHead(200);
       res.end(JSON.stringify(bets));
       return;
     }
 
-    // POST /bets  — place a bet
+    // POST /bets — place a bet
     if (req.method === 'POST' && resource === 'bets') {
-      const { gameId, betType, side, label, odds, stake } = await readBody(req);
+      const { gameId, betType, side, label, odds, stake, line } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -119,6 +176,8 @@ const server = http.createServer(async (req, res) => {
         side,
         label,
         odds,
+        // Store spread line so settlement is accurate even if admin edits lines later
+        ...(line != null ? { line } : {}),
         stake,
         payout,
         status: 'pending',
@@ -130,6 +189,21 @@ const server = http.createServer(async (req, res) => {
       console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  balance=$${balance}`);
       res.writeHead(201);
       res.end(JSON.stringify({ bet, balance }));
+      return;
+    }
+
+    // DELETE /bets/:id — remove a bet record
+    if (req.method === 'DELETE' && resource === 'bets' && id) {
+      const before = bets.length;
+      bets = bets.filter((b) => b.id !== id);
+      if (bets.length === before) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Bet not found' }));
+        return;
+      }
+      console.log(`[BET_DEL] id=${id}`);
+      res.writeHead(204);
+      res.end();
       return;
     }
 
@@ -157,8 +231,22 @@ const server = http.createServer(async (req, res) => {
       const updates = await readBody(req);
       games = games.map((g) => (g.id === id ? { ...g, ...updates } : g));
       const updated = games.find((g) => g.id === id);
-      if (!updated) { res.writeHead(404); res.end(JSON.stringify({ error: 'Game not found' })); return; }
+      if (!updated) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Game not found' }));
+        return;
+      }
       console.log(`[UPDATE] id=${id}`, Object.keys(updates).join(', '));
+
+      // Auto-settle pending bets when game is final with both scores present
+      if (
+        updated.status === 'final' &&
+        updated.homeScore !== undefined &&
+        updated.awayScore !== undefined
+      ) {
+        settleGameBets(updated);
+      }
+
       res.writeHead(200);
       res.end(JSON.stringify(updated));
       return;
@@ -168,7 +256,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'DELETE' && resource === 'games' && id) {
       const before = games.length;
       games = games.filter((g) => g.id !== id);
-      if (games.length === before) { res.writeHead(404); res.end(JSON.stringify({ error: 'Game not found' })); return; }
+      if (games.length === before) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Game not found' }));
+        return;
+      }
       console.log(`[REMOVE] id=${id}`);
       res.writeHead(204);
       res.end();

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Bet, Game, BetStatus } from '../types';
 import { colors } from '../styles/GlobalStyles';
-import { fetchBets } from '../api/betsApi';
+import { fetchBets, deleteBet } from '../api/betsApi';
 import { fetchGames } from '../api/gamesApi';
 
 const POLL_INTERVAL_MS = 5000;
@@ -166,6 +166,28 @@ const MonoValue = styled.span`
   color: ${colors.text};
 `;
 
+const RemoveButton = styled.button`
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: ${colors.danger};
+  border: 1px solid ${colors.danger}60;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background-color: ${colors.danger}18;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
 const EmptyCell = styled.td`
   padding: 40px 14px;
   text-align: center;
@@ -183,7 +205,7 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
   color: ${({ variant }) => variant === 'error' ? colors.danger : colors.textMuted};
 `;
 
-const COLS = 8;
+const COLS = 9;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -192,6 +214,7 @@ const BetsPanel: React.FC = () => {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -218,6 +241,18 @@ const BetsPanel: React.FC = () => {
 
   const gameMap = Object.fromEntries(games.map((g) => [g.id, g]));
 
+  const handleRemove = async (id: string) => {
+    setRemoving((prev) => new Set(prev).add(id));
+    try {
+      await deleteBet(id);
+      setBets((prev) => prev.filter((b) => b.id !== id));
+    } catch {
+      // silently ignore — bet will reappear on next poll if delete failed
+    } finally {
+      setRemoving((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  };
+
   // Stats
   const totalStaked = bets.reduce((s, b) => s + b.stake, 0);
   const pendingCount = bets.filter((b) => b.status === 'pending').length;
@@ -234,6 +269,7 @@ const BetsPanel: React.FC = () => {
         <Th>To Win</Th>
         <Th>Payout</Th>
         <Th>Status</Th>
+        <Th>Actions</Th>
       </tr>
     </thead>
   );
@@ -322,6 +358,16 @@ const BetsPanel: React.FC = () => {
 
                     {/* Status */}
                     <Td><StatusBadge status={bet.status}>{bet.status}</StatusBadge></Td>
+
+                    {/* Actions */}
+                    <Td>
+                      <RemoveButton
+                        onClick={() => handleRemove(bet.id)}
+                        disabled={removing.has(bet.id)}
+                      >
+                        {removing.has(bet.id) ? 'Removing…' : 'Remove'}
+                      </RemoveButton>
+                    </Td>
                   </Tr>
                 );
               })

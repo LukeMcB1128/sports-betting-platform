@@ -12,7 +12,8 @@ export interface Bet {
   betType: BetType;
   side: BetSide;
   label: string;    // e.g. "Kansas City Chiefs -3.5"
-  odds: number;     // e.g. -110
+  odds: number;     // e.g. -110 (the juice / price)
+  line?: number;    // spread line at time of bet, e.g. -3.5 (spread bets only)
   stake: number;    // amount wagered
   payout: number;   // total payout on win (stake + profit)
   status: BetStatus;

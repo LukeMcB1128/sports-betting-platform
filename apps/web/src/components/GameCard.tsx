@@ -16,6 +16,7 @@ interface SelectedBet {
   side: BetSide;
   label: string;
   odds: number;
+  line?: number; // spread line, only for spread bets
 }
 
 const Card = styled.div`
@@ -145,12 +146,12 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
 
   const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? 'Final' : formatTime(game.startTime);
 
-  const handleSelect = (betType: BetType, side: BetSide, label: string, odds: number) => {
+  const handleSelect = (betType: BetType, side: BetSide, label: string, odds: number, line?: number) => {
     // Toggle off if same button clicked again
     if (isSameBet(selected, betType, side)) {
       setSelected(null);
     } else {
-      setSelected({ betType, side, label, odds });
+      setSelected({ betType, side, label, odds, line });
     }
   };
 
@@ -210,6 +211,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                       'spread', 'away',
                       formatSpreadLabel(game.awayTeam, game.odds.spread.away.line),
                       game.odds.spread.away.juice,
+                      game.odds.spread.away.line,
                     )}
                   />
                   <OddsButton
@@ -220,6 +222,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                       'spread', 'home',
                       formatSpreadLabel(game.homeTeam, game.odds.spread.home.line),
                       game.odds.spread.home.juice,
+                      game.odds.spread.home.line,
                     )}
                   />
                 </OddsRow>
@@ -233,6 +236,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                 side={selected.side}
                 label={selected.label}
                 odds={selected.odds}
+                line={selected.line}
                 balance={balance}
                 onClose={() => setSelected(null)}
                 onSuccess={handleBetSuccess}
