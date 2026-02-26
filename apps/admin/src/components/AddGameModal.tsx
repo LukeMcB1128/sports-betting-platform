@@ -189,11 +189,11 @@ const AddGameModal: React.FC<AddGameModalProps> = ({ onClose, onAdd }) => {
 
         {/* Teams */}
         <FormField label="Away Team" error={errors.awayTeam}>
-          <Input placeholder="e.g. Boston Celtics" value={form.awayTeam}
+          <Input placeholder="e.g. Lake Travis" value={form.awayTeam}
             onChange={(e) => set('awayTeam', e.target.value)} />
         </FormField>
         <FormField label="Home Team" error={errors.homeTeam}>
-          <Input placeholder="e.g. Miami Heat" value={form.homeTeam}
+          <Input placeholder="e.g. Austin High" value={form.homeTeam}
             onChange={(e) => set('homeTeam', e.target.value)} />
         </FormField>
 
