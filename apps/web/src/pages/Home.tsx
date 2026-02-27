@@ -113,7 +113,7 @@ const Home: React.FC<HomeProps> = ({ balance, onBalanceChange }) => {
 
   return (
     <Page>
-      <PageTitle>Today's Games</PageTitle>
+      <PageTitle>Games</PageTitle>
 
       {groups.length === 0 ? (
         <EmptyState>
@@ -125,7 +125,11 @@ const Home: React.FC<HomeProps> = ({ balance, onBalanceChange }) => {
           <Section key={label}>
             <SectionHeader>
               {label === 'Live Now' && <LiveDot />}
-              <SectionTitle>{label}</SectionTitle>
+              <SectionTitle>
+                {label === 'Live Now' || label.startsWith('Finished')
+                  ? label
+                  : `Upcoming - ${label}`}
+              </SectionTitle>
             </SectionHeader>
             <GameGrid>
               {groupGames.map((game) => (

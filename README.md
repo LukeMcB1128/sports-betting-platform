@@ -120,12 +120,15 @@ lsof -i :3002 -t | xargs kill && node infra/dev-server.js &
 
 ---
 
-## Bet Types
+## Branching Strategy
 
-| Type | Description |
+| Branch | Purpose |
 |---|---|
-| Moneyline | Pick the outright winner |
-| Spread | Pick a team against the handicap line |
+| `main` | Production-ready code |
+| `testing` | Integration and testing |
+| `feature-*` | Individual features |
+
+PRs go `feature-* → testing`. When stable, `testing → main`.
 
 ---
 
