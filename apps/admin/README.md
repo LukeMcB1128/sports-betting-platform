@@ -1,6 +1,8 @@
 # apps/admin — Admin Panel
 
-React + TypeScript admin panel for managing games and odds. Intended for internal use only. Runs on a separate port from the bettor-facing web app.
+React + TypeScript admin panel for managing games, odds, scores, and bets. Internal use only. Visually distinct from the bettor app via an amber accent colour.
+
+Runs on **port 3001**. Requires `infra/dev-server.js` to be running on port 3002.
 
 ---
 
@@ -10,20 +12,24 @@ React + TypeScript admin panel for managing games and odds. Intended for interna
 |---|---|
 | Framework | React 19 + TypeScript (Create React App) |
 | Styling | Styled Components |
-| State | React hooks + localStorage |
-| Sync | Connects to dev-server.js to update (read by the web app in real time(within 3 seconds)) |
+| State | React hooks |
+| Data sync | `fetch` polling to `infra/dev-server.js` every 3–5 seconds |
 
 ---
 
 ## Getting Started
 
 ```bash
+# From the repo root, start the dev server first:
+node infra/dev-server.js
+
+# Then in a separate terminal:
 cd apps/admin
 npm install
 npm start        # → http://localhost:3001
 ```
 
-> The admin is pinned to **port 3001** via `PORT=3001` in the start script so it does not conflict with the web app on port 3000, and so the "Admin" link in the web navbar always resolves correctly.
+> Port 3001 is pinned via `PORT=3001` in the start script so the "Admin" shortcut link in the bettor web app always resolves correctly.
 
 ---
 
@@ -31,23 +37,41 @@ npm start        # → http://localhost:3001
 
 ```
 src/
+  api/
+    gamesApi.ts         fetchGames, createGame, updateGameStatus, updateGameOdds,
+                        togglePublishGame, updateGameScore, updateBettingEnabled, removeGame
+    betsApi.ts          fetchBets, deleteBet
   components/
     NavBar.tsx          Top nav — SBP logo + amber "Admin" badge
-    GamesTable.tsx      Table listing all games with inline status + action buttons
-    AddGameModal.tsx    Modal form to create a new game
-    SetLinesModal.tsx   Modal form to set/update moneyline and spread odds
+    GamesTable.tsx      Games table — inline status, action buttons per row
+    AddGameModal.tsx    Modal form to create a new game with default odds
+    SetLinesModal.tsx   Modal form to update moneyline and spread odds
+    EnterScoreModal.tsx Modal form to set or edit away/home scores for live games
+    BetsPanel.tsx       Bets table — stats row, all placed bets, per-row Remove button
     Modal.tsx           Reusable overlay dialog wrapper
-    FormField.tsx       Label + input + error text field wrapper
-    Button.tsx          Shared button component (primary / ghost / danger variants)
+    FormField.tsx       Label + input + validation error field wrapper
+    Button.tsx          Shared button (primary / ghost / danger variants, sm/md sizes)
   pages/
-    Dashboard.tsx       Main page — stat cards, games table, modal orchestration
+    Dashboard.tsx       Main page — tab bar (Games / Bets), stat cards, modal orchestration
   styles/
     GlobalStyles.ts     Global CSS reset + dark admin color palette (amber accent)
   types/
-    index.ts            Shared TypeScript interfaces (Game, GameOdds, form shapes)
+    index.ts            Shared TypeScript interfaces (Game, Bet, GameOdds, form shapes, etc.)
   utils/
-    gamesStorage.ts     localStorage read/write helpers (persistGames, loadGames)
+    gamesStorage.ts     Legacy localStorage helpers (unused — retained for reference)
 ```
+
+---
+
+## Dashboard Tabs
+
+### Games Tab
+
+The default view. Shows four stat cards (Upcoming / Live / Resolving / Final counts) followed by the full `GamesTable`.
+
+### Bets Tab
+
+Shows all bets placed by bettors via the web app. Includes a stats row (Total Bets · Total Staked · Pending · Potential Payout) and a table with a **Remove** button per row.
 
 ---
 
@@ -60,86 +84,78 @@ Opens a modal form with:
 - Away team / Home team text inputs
 - Date and time pickers
 - Client-side validation (required fields, teams must differ)
-- On submit, game is added with default odds (`-110` across the board) and `upcoming` status
+- On submit: game added with default odds (`-110` across all markets), `upcoming` status, and `bettingEnabled: true`
 
 ### Set Lines
 Opens a modal pre-filled with the game's current odds:
 - **Moneyline** — away and home odds (American format, e.g. `-150`, `+130`)
 - **Spread** — line and juice for each side (e.g. `-3.5` at `-110`)
-- Validates that all fields are non-zero numbers in American odds format
-- Disabled for games with `final` status
+- Validates all fields are non-zero numbers in American odds format
+- Disabled for `live`, `resolving`, and `final` games
 
 ### Status Management
-Inline dropdown per row in the games table:
-- `Upcoming` → `Live` → `Final`
-- Status changes are persisted to localStorage immediately
+Inline dropdown per row:
+
+| Status | Meaning |
+|---|---|
+| `upcoming` | Not yet started — odds buttons visible to bettors |
+| `live` | In progress — live betting available if `bettingEnabled` is true |
+| `resolving` | Game over, awaiting score entry — betting closed |
+| `final` | Score entered — triggers automatic bet settlement |
+
+### Publish / Unpublish
+Toggle per row. Only published games are shown to bettors on the web app. Useful for staging a game before making it publicly visible.
+
+### Enable / Disable Betting
+Toggle per row, available for any non-final game:
+- **Disable Betting** — bettors see a 🔒 Betting suspended banner on the game card; any open bet slip is closed automatically
+- **Enable Betting** — restores odds buttons for bettors
+- Persisted to the dev server via `PUT /games/:id`
+
+### Enter Score
+Available for `live` and `resolving` games. Opens a modal to set or edit the away and home scores. When submitted with `status: "final"`, the dev server automatically settles all pending bets on that game.
 
 ### Remove Game
-Danger button per row — removes the game from state and localStorage immediately. No confirmation dialog at this stage (auth + confirmation planned for a later milestone).
+Danger button per row — removes the game from the dev server immediately. Also removes it from the bettor web app within 3 seconds via polling.
+
+### Remove Bet (Bets tab)
+Per-row **Remove** button in the Bets tab. Calls `DELETE /bets/:id`. The bet disappears from the table immediately (optimistic removal) and from the bettor's My Bets page within 3 seconds.
 
 ---
 
-## Admin → Web Sync — How It Works
+## Auto-Settlement
 
-The admin panel writes the full games array to `localStorage` on every state change. The bettor-facing web app (`apps/web`) reads from the same key and updates its UI in real time using the browser's native `storage` event.
+When a game is updated to `final` with scores, `infra/dev-server.js` settles all pending bets automatically:
 
-### Flow
+- **Moneyline** — compares scores; tied game → `void`
+- **Spread** — applies the line stored on the bet at placement time (immune to post-bet odds edits); exact cover → `void` (push)
+- Won bets: full payout credited to bettor balance
+- Void bets: stake refunded to bettor balance
+- Lost bets: no credit (stake already deducted at placement)
 
-```
-Admin tab (this app)               Web tab (apps/web)
-─────────────────────────────────────────────────────
-Any games change (add/edit/remove/status)
-        ↓
-  persistGames(games)
-  localStorage["sbp_games"] = JSON
-                                         ↓
-                              browser fires `storage` event
-                              (fires in all other tabs
-                               on the same origin automatically)
-                                         ↓
-                              web app useGames hook updates state
-                                         ↓
-                              bettor homepage re-renders
-```
-
-### Key files
-
-| File | Role |
-|---|---|
-| `src/utils/gamesStorage.ts` | Defines `GAMES_STORAGE_KEY = "sbp_games"`. `persistGames(games)` serialises and writes to localStorage. `loadGames()` reads and parses, returns `null` if missing or invalid. |
-| `src/pages/Dashboard.tsx` | Initialises state from `loadGames()` (falls back to hardcoded seed data on first run). Calls `persistGames()` inside a `useEffect` whenever the `games` state changes. |
-
-### localStorage key
-
-```
-sbp_games  →  JSON array of Game objects
-```
-
-This key is shared between both apps. The admin is the sole writer; the web app is the sole reader.
-
-### Seed data
-
-On first load, if `sbp_games` is not present in localStorage, `Dashboard` initialises from a hardcoded `INITIAL_GAMES` array (2 NBA games). These are written to localStorage immediately on mount, so the web app will see them right away.
+The bettor's My Bets page and NavBar balance reflect the result within 3 seconds.
 
 ---
 
 ## Color Theme
 
-Dark palette with **amber accent** (`#f59e0b`) to visually distinguish the admin from the bettor-facing blue-accented web app. Defined in `src/styles/GlobalStyles.ts`.
+Dark palette with **amber accent** to visually distinguish the admin from the blue-accented bettor web app. Defined in `src/styles/GlobalStyles.ts`.
 
 | Token | Hex | Usage |
 |---|---|---|
 | `bg` | `#0f1117` | Page background |
 | `surface` | `#1a1d27` | Cards, nav, table |
-| `accent` | `#f59e0b` | Amber — primary buttons, Admin badge |
-| `danger` | `#ef4444` | Red — Remove button |
-| `success` | `#22c55e` | Green (reserved) |
+| `surfaceHover` | `#22263a` | Hover states, input backgrounds |
+| `border` | `#2a2d3e` | Dividers, table borders |
+| `accent` | `#f59e0b` | Amber — primary buttons, Admin badge, active tab |
+| `danger` | `#ef4444` | Red — Remove buttons |
+| `success` | `#22c55e` | Green — won bet status |
+| `textMuted` | `#7b8199` | Secondary labels |
 
 ---
 
 ## Planned
 
-- Auth / access control before exposing remove and status actions
-- Confirmation dialog on game removal
-- Score entry for live games
-- Bet resolution trigger on final score submission
+- Authentication and access control before exposing destructive actions
+- Confirmation dialog on game and bet removal
+- Audit log of admin actions (score edits, status changes)
