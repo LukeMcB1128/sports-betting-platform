@@ -1,19 +1,28 @@
 # Sports Betting Platform
 
-A regional sports betting platform supporting moneylines and spreads with real time game resolution.
+A regional sports betting platform supporting moneylines and spreads with real-time game management and automatic bet resolution.
 
 ---
 
 ## Tech Stack
 
+### Current (dev)
+
 | Layer | Technology |
 |---|---|
-| Frontend | React + TypeScript |
-| Admin Panel | React + TypeScript |
+| Bettor frontend | React 19 + TypeScript — `apps/web` (port 3000) |
+| Admin panel | React 19 + TypeScript — `apps/admin` (port 3001) |
+| Dev API server | Node.js (no dependencies) — `infra/dev-server.js` (port 3002) |
+| Styling | Styled Components |
+
+### Planned (production)
+
+| Layer | Technology |
+|---|---|
 | Backend API | C# ASP.NET Core |
-| Real Time | SignalR |
+| Real-time | SignalR |
 | Database | PostgreSQL |
-| Containerization | Docker + Docker Compose |
+| Containerisation | Docker + Docker Compose |
 | CI/CD | GitHub Actions |
 
 ---
@@ -23,17 +32,10 @@ A regional sports betting platform supporting moneylines and spreads with real t
 ```
 sports-betting-platform/
   apps/
-    web/          React frontend for bettors
-    api/          C# ASP.NET Core backend
-    admin/        React admin panel for manual stat entry
+    web/          Bettor-facing React frontend
+    admin/        Internal React admin panel
   infra/
-    docker-compose.yml
-    nginx.conf
-  .github/
-    workflows/
-      api.yml
-      web.yml
-      admin.yml
+    dev-server.js   In-memory Node.js API (games, bets, balance)
   README.md
 ```
 
@@ -44,9 +46,6 @@ sports-betting-platform/
 ### Prerequisites
 
 - Node.js v18+
-- .NET 8 SDK
-- Docker + Docker Compose
-- PostgreSQL (or just use Docker)
 
 ### Running Locally
 
@@ -57,47 +56,76 @@ git clone https://github.com/LukeMcB1128/sports-betting-platform.git
 cd sports-betting-platform
 ```
 
-2. Start all services via Docker
+2. Start the dev API server first (required by both apps)
 
 ```bash
-docker-compose up --build
+node infra/dev-server.js
+# → http://localhost:3002
 ```
 
-3. Or run individually:
+3. Start the bettor web app
 
-**API**
-```bash
-cd apps/api
-dotnet run
-```
-
-**Web**
 ```bash
 cd apps/web
 npm install
-npm run dev
+npm start
+# → http://localhost:3000
 ```
 
-**Admin**
+4. Start the admin panel
+
 ```bash
 cd apps/admin
 npm install
-npm run dev
+npm start
+# → http://localhost:3001
+```
+
+> All three processes need to be running at the same time. The dev server is the shared data layer — restarting it resets all in-memory state (games, bets, balance).
+
+---
+
+## Dev API Server
+
+`infra/dev-server.js` is a zero-dependency Node.js HTTP server that acts as the shared backend during development. It holds all state in memory.
+
+### Endpoints
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/games` | Return all games |
+| `POST` | `/games` | Add a new game |
+| `PUT` | `/games/:id` | Partial update a game (status, odds, scores, bettingEnabled) |
+| `DELETE` | `/games/:id` | Remove a game |
+| `GET` | `/balance` | Return the current bettor balance |
+| `GET` | `/bets` | Return all placed bets |
+| `POST` | `/bets` | Place a new bet (deducts stake from balance) |
+| `DELETE` | `/bets/:id` | Remove a bet record |
+
+### Auto-settlement
+
+When a game is updated to `status: "final"` with `homeScore` and `awayScore` present, the server automatically settles all pending bets on that game:
+
+- **Moneyline** — winner determined by score comparison; tied scores → `void`
+- **Spread** — applies the handicap line stored on the bet at placement time; exact cover → `void` (push)
+- Won bets credit the full payout to balance; void bets refund the stake
+
+### Resetting
+
+Restart the process to wipe all data back to defaults ($1,000 balance, no games, no bets):
+
+```bash
+lsof -i :3002 -t | xargs kill && node infra/dev-server.js &
 ```
 
 ---
 
-## Environment Variables
+## Bet Types
 
-Each app has its own `.env` file. Copy the example files to get started:
-
-```bash
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.example apps/web/.env
-cp apps/admin/.env.example apps/admin/.env
-```
-
-> Never commit `.env` files. They are gitignored by default.
+| Type | Description |
+|---|---|
+| Moneyline | Pick the outright winner |
+| Spread | Pick a team against the handicap line |
 
 ---
 
@@ -105,28 +133,19 @@ cp apps/admin/.env.example apps/admin/.env
 
 | Branch | Purpose |
 |---|---|
-| `main` | Production ready code |
-| `dev` | Integration branch |
-| `feature/*` | Individual features |
+| `main` | Production-ready code |
+| `testing` | Integration and testing |
+| `feature-*` | Individual features |
 
-PRs go `feature/* -> dev`. When stable, `dev -> main`.
-
----
-
-## Bet Types Supported
-
-- Moneyline
-- Spread
-
-Game results and winners are manually entered via the admin panel at the end of each game which triggers automatic bet resolution.
+PRs go `feature-* → testing`. When stable, `testing → main`.
 
 ---
 
 ## Contributing
 
-1. Branch off `dev`
+1. Branch off `testing`
 2. Name your branch `feature/your-feature-name`
-3. Open a PR targeting `dev`
+3. Open a PR targeting `testing`
 4. Get a review before merging
 
 ---

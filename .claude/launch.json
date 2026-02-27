@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Dev API Server",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["infra/dev-server.js"],
+      "port": 3002
+    },
+    {
+      "name": "Web (Bettor Frontend)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start", "--prefix", "apps/web"],
+      "port": 3000
+    },
+    {
+      "name": "Admin Panel",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start", "--prefix", "apps/admin"],
+      "port": 3001
+    }
+  ]
+}

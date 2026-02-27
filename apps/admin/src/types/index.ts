@@ -1,0 +1,75 @@
+export type GameStatus = 'upcoming' | 'live' | 'resolving' | 'final';
+
+export type BetType = 'moneyline' | 'spread';
+export type BetSide = 'home' | 'away';
+export type BetStatus = 'pending' | 'won' | 'lost' | 'void';
+
+export interface Bet {
+  id: string;
+  gameId: string;
+  betType: BetType;
+  side: BetSide;
+  label: string;
+  odds: number;
+  stake: number;
+  payout: number;
+  status: BetStatus;
+  placedAt: string; // ISO string
+}
+
+export interface SpreadSide {
+  line: number;
+  juice: number;
+}
+
+export interface GameOdds {
+  moneyline: {
+    home: number;
+    away: number;
+  };
+  spread: {
+    home: SpreadSide;
+    away: SpreadSide;
+  };
+}
+
+export interface Game {
+  id: string;
+  sport: string;
+  league: string;
+  homeTeam: string;
+  awayTeam: string;
+  startTime: string; // ISO string
+  status: GameStatus;
+  published: boolean;
+  homeScore?: number;
+  awayScore?: number;
+  odds: GameOdds;
+  bettingEnabled: boolean;
+}
+
+// Form shapes (all strings before parsing)
+export interface AddGameFormData {
+  sport: string;
+  league: string;
+  homeTeam: string;
+  awayTeam: string;
+  startDate: string; // yyyy-MM-dd
+  startTime: string; // HH:mm
+  // Opening lines
+  mlAway: string;
+  mlHome: string;
+  spreadAwayLine: string;
+  spreadAwayJuice: string;
+  spreadHomeLine: string;
+  spreadHomeJuice: string;
+}
+
+export interface SetLinesFormData {
+  mlHome: string;
+  mlAway: string;
+  spreadHomeLine: string;
+  spreadHomeJuice: string;
+  spreadAwayLine: string;
+  spreadAwayJuice: string;
+}
