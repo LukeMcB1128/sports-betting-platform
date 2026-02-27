@@ -206,7 +206,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
 
             {!bettingOpen ? (
               <BettingSuspendedBanner>
-                🔒 Betting suspended
+                  Betting closed
               </BettingSuspendedBanner>
             ) : (
               <>
@@ -279,7 +279,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
         {isResolving && (
           <>
             <Divider />
-            <GameMeta style={{ fontSize: 11, color: '#f59e0b' }}>Betting closed — awaiting final score</GameMeta>
+            <GameMeta style={{ fontSize: 11, color: '#f59e0b' }}>Awaiting final score</GameMeta>
           </>
         )}
       </CardBody>
