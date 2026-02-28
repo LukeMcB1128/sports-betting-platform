@@ -133,9 +133,11 @@ const OddsRow = styled.div`
   gap: 4px;
 `;
 
-const formatTime = (iso: string): string => {
+const formatDateTime = (iso: string): string => {
   const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const date = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${date} · ${time}`;
 };
 
 const formatSpreadLabel = (team: string, line: number): string => {
@@ -160,7 +162,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
   const awayWon = isFinal && awayScore > homeScore;
   const homeWon = isFinal && homeScore > awayScore;
 
-  const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? 'Final' : formatTime(game.startTime);
+  const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? 'Final' : formatDateTime(game.startTime);
 
   const handleSelect = (betType: BetType, side: BetSide, label: string, odds: number, line?: number) => {
     if (!bettingOpen) return;
