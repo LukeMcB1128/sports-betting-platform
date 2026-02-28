@@ -162,7 +162,8 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
   const awayWon = isFinal && awayScore > homeScore;
   const homeWon = isFinal && homeScore > awayScore;
 
-  const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? 'Final' : formatDateTime(game.startTime);
+  const gameDate = new Date(game.startTime).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? `${gameDate} · Final` : formatDateTime(game.startTime);
 
   const handleSelect = (betType: BetType, side: BetSide, label: string, odds: number, line?: number) => {
     if (!bettingOpen) return;
