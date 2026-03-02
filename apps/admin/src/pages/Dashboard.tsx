@@ -20,15 +20,12 @@ import {
   removeGame,
 } from '../api/gamesApi';
 
-type ActiveTab = 'games' | 'bets';
+type ActiveTab = 'games' | 'bets' | 'users';
 
-// ── Page shell — widen for the Bets split view ─────────────────────────────────
-
-const Page = styled.main<{ $wide: boolean }>`
-  max-width: ${({ $wide }) => ($wide ? '1440px' : '1100px')};
+const Page = styled.main`
+  max-width: 1100px;
   margin: 0 auto;
   padding: 28px 20px;
-  transition: max-width 0.2s;
 `;
 
 const PageHeader = styled.div`
@@ -113,19 +110,6 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
   color: ${({ variant }) => variant === 'error' ? colors.danger : colors.textMuted};
 `;
 
-// ─── Bets split layout ────────────────────────────────────────────────────────
-
-const BetsSplit = styled.div`
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-`;
-
-const BetsMain = styled.div`
-  flex: 1;
-  min-width: 0;   /* allow table's overflow-x scroll to kick in */
-`;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 interface DashboardProps {
@@ -200,9 +184,11 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const finalCount     = games.filter((g) => g.status === 'final').length;
 
   return (
-    <Page $wide={activeTab === 'bets'}>
+    <Page>
       <PageHeader>
-        <PageTitle>{activeTab === 'games' ? 'Games' : 'Bets'}</PageTitle>
+        <PageTitle>
+          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : 'Users'}
+        </PageTitle>
         {activeTab === 'games' && (
           <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
             + Add Game
@@ -217,6 +203,9 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         </Tab>
         <Tab active={activeTab === 'bets'} onClick={() => setActiveTab('bets')}>
           Bets
+        </Tab>
+        <Tab active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
+          Users
         </Tab>
       </TabBar>
 
@@ -264,15 +253,11 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         </>
       )}
 
-      {/* ── Bets tab — split: bets left, user management right ────────────── */}
-      {activeTab === 'bets' && (
-        <BetsSplit>
-          <BetsMain>
-            <BetsPanel />
-          </BetsMain>
-          <UsersPanel adminToken={adminToken} />
-        </BetsSplit>
-      )}
+      {/* ── Bets tab ──────────────────────────────────────────────────────── */}
+      {activeTab === 'bets' && <BetsPanel />}
+
+      {/* ── Users tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'users' && <UsersPanel adminToken={adminToken} />}
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showAddGame && (

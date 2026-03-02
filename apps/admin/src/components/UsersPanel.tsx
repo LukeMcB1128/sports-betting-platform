@@ -11,49 +11,57 @@ import {
 
 // ── Layout ──────────────────────────────────────────────────────────────────────
 
-const Panel = styled.aside`
-  width: 300px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-self: flex-start;
-  position: sticky;
-  top: 72px;               /* below the 56px nav + padding */
-  max-height: calc(100vh - 88px);
-  overflow-y: auto;
+const Grid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
 `;
+
+const LogRow = styled.div`
+  grid-column: 1 / -1;   /* sign-in log spans both columns */
+`;
+
+// ── Cards ───────────────────────────────────────────────────────────────────────
 
 const Card = styled.div`
   background-color: ${colors.surface};
   border: 1px solid ${colors.border};
   border-radius: 10px;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 `;
 
-const CardHeader = styled.div<{ $accent?: string }>`
+const CardHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-bottom: 1px solid ${colors.border};
   background-color: ${colors.surfaceHover};
+  flex-shrink: 0;
 `;
 
-const CardTitle = styled.div`
+const CardTitle = styled.div<{ $color?: string }>`
   font-size: 11px;
   font-weight: 700;
-  color: ${colors.textMuted};
+  color: ${({ $color }) => $color ?? colors.textMuted};
   text-transform: uppercase;
   letter-spacing: 0.6px;
 `;
 
-const CountBadge = styled.span<{ $color?: string }>`
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+const CountBadge = styled.span<{ $bg?: string }>`
   font-size: 10px;
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 10px;
-  background-color: ${({ $color }) => $color ?? colors.border};
+  background-color: ${({ $bg }) => $bg ?? colors.border};
   color: ${colors.text};
 `;
 
@@ -68,12 +76,14 @@ const RefreshBtn = styled.button`
 `;
 
 const CardBody = styled.div`
-  padding: 6px 0;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 340px;
 `;
 
 const EmptyNote = styled.div`
-  padding: 12px 14px;
-  font-size: 12px;
+  padding: 20px 16px;
+  font-size: 13px;
   color: ${colors.textMuted};
   text-align: center;
 `;
@@ -83,11 +93,12 @@ const EmptyNote = styled.div`
 const UserRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 10px;
+  padding: 10px 16px;
   border-bottom: 1px solid ${colors.border};
 
   &:last-child { border-bottom: none; }
+  &:hover { background-color: ${colors.surfaceHover}; }
 `;
 
 const UserInfo = styled.div`
@@ -107,17 +118,17 @@ const UserName = styled.div`
 const UserDate = styled.div`
   font-size: 11px;
   color: ${colors.textMuted};
-  margin-top: 1px;
+  margin-top: 2px;
 `;
 
 const ActionGroup = styled.div`
   display: flex;
-  gap: 5px;
+  gap: 6px;
   flex-shrink: 0;
 `;
 
 const Btn = styled.button<{ $variant: 'accept' | 'deny' | 'reset' }>`
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 5px;
   font-size: 11px;
   font-weight: 700;
@@ -148,41 +159,41 @@ const Btn = styled.button<{ $variant: 'accept' | 'deny' | 'reset' }>`
     `}
 `;
 
-// ── Log rows ────────────────────────────────────────────────────────────────────
+// ── Log table ───────────────────────────────────────────────────────────────────
 
-const LogRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
+const LogTable = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+`;
+
+const LogTh = styled.th`
+  text-align: left;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   border-bottom: 1px solid ${colors.border};
+  background-color: ${colors.surfaceHover};
+  white-space: nowrap;
+`;
 
-  &:last-child { border-bottom: none; }
+const LogTd = styled.td`
+  padding: 9px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid ${colors.border};
+  vertical-align: middle;
+  tr:last-child & { border-bottom: none; }
 `;
 
 const LogDot = styled.span<{ $success: boolean }>`
+  display: inline-block;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  flex-shrink: 0;
   background-color: ${({ $success }) => ($success ? colors.success : colors.danger)};
-`;
-
-const LogName = styled.div`
-  font-size: 12px;
-  font-weight: 600;
-  color: ${colors.text};
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-
-const LogMeta = styled.div`
-  font-size: 10px;
-  color: ${colors.textMuted};
-  text-align: right;
+  margin-right: 8px;
   flex-shrink: 0;
 `;
 
@@ -216,16 +227,12 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
       ]);
       setUsers(u);
       setLog(l);
-    } catch {
-      // dev server may be down
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* dev server may be down */ }
+    finally { setLoading(false); }
   }, [adminToken]);
 
   useEffect(() => {
     load();
-    // Refresh every 15 seconds so pending requests appear without manual refresh
     const t = setInterval(load, 15000);
     return () => clearInterval(t);
   }, [load]);
@@ -242,30 +249,24 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
   const verified = users.filter((u) => u.status === 'verified');
 
   if (loading) {
-    return (
-      <Panel>
-        <Card>
-          <CardBody>
-            <EmptyNote>Loading…</EmptyNote>
-          </CardBody>
-        </Card>
-      </Panel>
-    );
+    return <EmptyNote>Loading…</EmptyNote>;
   }
 
   return (
-    <Panel>
+    <Grid>
 
-      {/* ── Pending ─────────────────────────────────────────────────────── */}
+      {/* ── Pending ───────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending</CardTitle>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <CountBadge $color={pending.length ? colors.accent : undefined}>
+          <CardTitle $color={pending.length ? colors.accent : undefined}>
+            Pending Requests
+          </CardTitle>
+          <HeaderRight>
+            <CountBadge $bg={pending.length ? colors.accent : undefined}>
               {pending.length}
             </CountBadge>
-            <RefreshBtn onClick={load}>↻</RefreshBtn>
-          </div>
+            <RefreshBtn onClick={load}>↻ Refresh</RefreshBtn>
+          </HeaderRight>
         </CardHeader>
         <CardBody>
           {pending.length === 0
@@ -274,7 +275,7 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
               <UserRow key={u.id}>
                 <UserInfo>
                   <UserName>{u.firstName} {u.lastName}</UserName>
-                  <UserDate>{fmt(u.createdAt)}</UserDate>
+                  <UserDate>Requested {fmt(u.createdAt)}</UserDate>
                 </UserInfo>
                 <ActionGroup>
                   <Btn $variant="accept" onClick={() => setStatus(u.id, 'verified')}>Accept</Btn>
@@ -286,11 +287,11 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
         </CardBody>
       </Card>
 
-      {/* ── Denied ──────────────────────────────────────────────────────── */}
+      {/* ── Denied ────────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle style={{ color: colors.danger }}>Denied</CardTitle>
-          <CountBadge $color={denied.length ? `${colors.danger}33` : undefined}>
+          <CardTitle $color={colors.danger}>Denied</CardTitle>
+          <CountBadge $bg={denied.length ? `${colors.danger}44` : undefined}>
             {denied.length}
           </CountBadge>
         </CardHeader>
@@ -313,11 +314,11 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
         </CardBody>
       </Card>
 
-      {/* ── Verified ────────────────────────────────────────────────────── */}
+      {/* ── Verified ──────────────────────────────────────────────────────── */}
       <Card>
         <CardHeader>
-          <CardTitle style={{ color: colors.success }}>Verified</CardTitle>
-          <CountBadge $color={verified.length ? `${colors.success}33` : undefined}>
+          <CardTitle $color={colors.success}>Verified</CardTitle>
+          <CountBadge $bg={verified.length ? `${colors.success}44` : undefined}>
             {verified.length}
           </CountBadge>
         </CardHeader>
@@ -340,33 +341,54 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
         </CardBody>
       </Card>
 
-      {/* ── Sign-in log ─────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Sign-in Log</CardTitle>
-          <CountBadge>{log.length}</CountBadge>
-        </CardHeader>
-        <CardBody>
-          {log.length === 0
-            ? <EmptyNote>No attempts yet</EmptyNote>
-            : log.slice(0, 25).map((e) => (
-              <LogRow key={e.id}>
-                <LogDot $success={e.success} />
-                <LogName>{e.name}</LogName>
-                <LogMeta>
-                  <div>{e.reason}</div>
-                  <div>{fmt(e.timestamp)}</div>
-                </LogMeta>
-              </LogRow>
-            ))
-          }
-          {log.length > 25 && (
-            <EmptyNote>{log.length - 25} older entries hidden</EmptyNote>
-          )}
-        </CardBody>
-      </Card>
+      {/* ── Sign-in log — spans full width ────────────────────────────────── */}
+      <LogRow>
+        <Card>
+          <CardHeader>
+            <CardTitle>Sign-in Log</CardTitle>
+            <CountBadge>{log.length}</CountBadge>
+          </CardHeader>
+          <CardBody style={{ maxHeight: 300 }}>
+            {log.length === 0
+              ? <EmptyNote>No sign-in attempts yet</EmptyNote>
+              : (
+                <LogTable>
+                  <thead>
+                    <tr>
+                      <LogTh>User</LogTh>
+                      <LogTh>Result</LogTh>
+                      <LogTh>Reason</LogTh>
+                      <LogTh>Time</LogTh>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {log.slice(0, 50).map((e) => (
+                      <tr key={e.id}>
+                        <LogTd style={{ fontWeight: 600, color: colors.text }}>
+                          <LogDot $success={e.success} />
+                          {e.name}
+                        </LogTd>
+                        <LogTd style={{ color: e.success ? colors.success : colors.danger }}>
+                          {e.success ? 'Allowed' : 'Blocked'}
+                        </LogTd>
+                        <LogTd style={{ color: colors.textMuted }}>{e.reason}</LogTd>
+                        <LogTd style={{ color: colors.textMuted, whiteSpace: 'nowrap' }}>
+                          {fmt(e.timestamp)}
+                        </LogTd>
+                      </tr>
+                    ))}
+                  </tbody>
+                </LogTable>
+              )
+            }
+            {log.length > 50 && (
+              <EmptyNote>{log.length - 50} older entries not shown</EmptyNote>
+            )}
+          </CardBody>
+        </Card>
+      </LogRow>
 
-    </Panel>
+    </Grid>
   );
 };
 
