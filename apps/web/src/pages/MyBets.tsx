@@ -370,8 +370,16 @@ const MyBets: React.FC = () => {
             <StatLabel>Pending</StatLabel>
           </StatCard>
           <StatCard>
+            <StatValue color="#FF0000">{lostBets.length}</StatValue>
+            <StatLabel>Lost</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatValue color="#00ff00">{wonBets.length}</StatValue>
+            <StatLabel>Won</StatLabel>
+          </StatCard>
+          <StatCard>
             <StatValue color={netPLColor}>
-              {netPL >= 0 ? '+' : ''}${formatMoney(Math.abs(netPL))}
+              {`${netPL >= 0 ? '+' : '-'}$${formatMoney(Math.abs(netPL))}`}
             </StatValue>
             <StatLabel>Net P&amp;L</StatLabel>
           </StatCard>

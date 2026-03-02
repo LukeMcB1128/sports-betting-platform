@@ -256,6 +256,8 @@ const BetsPanel: React.FC = () => {
   // Stats
   const totalStaked = bets.reduce((s, b) => s + b.stake, 0);
   const pendingCount = bets.filter((b) => b.status === 'pending').length;
+  const lossCount = bets.filter((b) => b.status === 'lost').length;
+  const wonCount = bets.filter((b) => b.status === 'won').length;
   const potentialPayout = bets.filter((b) => b.status === 'pending').reduce((s, b) => s + b.payout, 0);
 
   const header = (
@@ -292,6 +294,14 @@ const BetsPanel: React.FC = () => {
           <StatCard>
             <StatValue style={{ color: '#f59e0b' }}>{pendingCount}</StatValue>
             <StatLabel>Pending</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatValue style={{ color: colors.danger }}>{lossCount}</StatValue>
+            <StatLabel>Lost</StatLabel>
+          </StatCard>
+          <StatCard>
+            <StatValue style={{ color: colors.success }}>{wonCount}</StatValue>
+            <StatLabel>Won</StatLabel>
           </StatCard>
           <StatCard>
             <StatValue>{formatMoney(potentialPayout)}</StatValue>
