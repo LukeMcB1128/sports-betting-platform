@@ -188,7 +188,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
   return (
     <Card>
       <CardHeader>
-        <GameMeta>{game.league} · {metaTime}</GameMeta>
+        <GameMeta>{game.sport} · {game.league} · {metaTime}</GameMeta>
         {isLive && <LiveBadge>LIVE</LiveBadge>}
         {isResolving && <ResolvingBadge>RESOLVING</ResolvingBadge>}
       </CardHeader>
