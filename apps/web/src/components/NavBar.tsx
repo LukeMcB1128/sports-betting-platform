@@ -4,6 +4,8 @@ import { colors } from '../styles/GlobalStyles';
 
 interface NavBarProps {
   balance: number | null;
+  userName: string;
+  onSignOut: () => void;
 }
 
 const Nav = styled.nav`
@@ -49,21 +51,11 @@ const NavLink = styled.a<{ active?: boolean }>`
   }
 `;
 
-const AdminLink = styled.a`
-  padding: 5px 11px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: ${colors.textMuted};
-  border: 1px solid ${colors.border};
-  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+const RightSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-shrink: 0;
-
-  &:hover {
-    background-color: ${colors.surfaceHover};
-    color: ${colors.text};
-    border-color: ${colors.textMuted};
-  }
 `;
 
 const BalanceChip = styled.div`
@@ -76,7 +68,6 @@ const BalanceChip = styled.div`
   padding: 6px 14px;
   font-size: 14px;
   font-weight: 600;
-  flex-shrink: 0;
 `;
 
 const BalanceLabel = styled.span`
@@ -85,10 +76,33 @@ const BalanceLabel = styled.span`
   font-size: 12px;
 `;
 
+const UserName = styled.span`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${colors.text};
+`;
+
+const SignOutButton = styled.button`
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: ${colors.textMuted};
+  border: 1px solid ${colors.border};
+  background: none;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    background-color: ${colors.surfaceHover};
+    color: ${colors.text};
+    border-color: ${colors.textMuted};
+  }
+`;
+
 const formatBalance = (n: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-const NavBar: React.FC<NavBarProps> = ({ balance }) => {
+const NavBar: React.FC<NavBarProps> = ({ balance, userName, onSignOut }) => {
   const isMyBets = window.location.pathname === '/bets';
 
   return (
@@ -98,13 +112,14 @@ const NavBar: React.FC<NavBarProps> = ({ balance }) => {
         <NavLink href="/" active={!isMyBets}>Games</NavLink>
         <NavLink href="/bets" active={isMyBets}>My Bets</NavLink>
       </NavLinks>
-      <AdminLink href="http://localhost:3001" target="_blank" rel="noreferrer">
-        Admin
-      </AdminLink>
-      <BalanceChip>
-        <BalanceLabel>Balance</BalanceLabel>
-        {balance !== null ? `$${formatBalance(balance)}` : '—'}
-      </BalanceChip>
+      <RightSection>
+        <BalanceChip>
+          <BalanceLabel>Balance</BalanceLabel>
+          {balance !== null ? `$${formatBalance(balance)}` : '—'}
+        </BalanceChip>
+        <UserName>{userName}</UserName>
+        <SignOutButton onClick={onSignOut}>Sign Out</SignOutButton>
+      </RightSection>
     </Nav>
   );
 };
