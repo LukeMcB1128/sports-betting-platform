@@ -10,7 +10,16 @@ import { getBalance } from './api/betsApi';
 const BALANCE_POLL_MS = 3000;
 
 const App: React.FC = () => {
-  const [authedUser, setAuthedUser] = useState<AuthUser | null>(null);
+  // hoping to find a way to just have them still be authed but not permentatly.
+  const [authedUser, setAuthedUser] = useState<AuthUser | null>(()=> {
+    // check local storage to stop user from being signed out on page refresh and when opened bets page
+    try {
+      const stored = localStorage.getItem('authedUser');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  })
   const [balance, setBalance] = useState<number | null>(null);
   const isMyBets = window.location.pathname === '/bets';
 
@@ -30,7 +39,13 @@ const App: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authedUser]);
 
+  const handleSignIn = (user: AuthUser) => {
+    localStorage.setItem('authedUser', JSON.stringify(user));
+    setAuthedUser(user);
+  }
+
   const handleSignOut = () => {
+    localStorage.removeItem('authedUser');
     setAuthedUser(null);
     setBalance(null);
   };
@@ -40,7 +55,7 @@ const App: React.FC = () => {
     return (
       <>
         <GlobalStyles />
-        <LandingPage onSignIn={setAuthedUser} />
+        <LandingPage onSignIn={handleSignIn} />
       </>
     );
   }
