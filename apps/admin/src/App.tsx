@@ -23,7 +23,7 @@ const App: React.FC = () => {
     <>
       <GlobalStyles />
       <NavBar adminToken={adminToken} onLogout={handleLogout} />
-      <Dashboard />
+      <Dashboard adminToken={adminToken} />
     </>
   );
 };

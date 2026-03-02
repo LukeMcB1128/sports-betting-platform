@@ -4,6 +4,7 @@ import { Game, GameStatus, GameOdds } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import BetsPanel from '../components/BetsPanel';
+import UsersPanel from '../components/UsersPanel';
 import AddGameModal from '../components/AddGameModal';
 import SetLinesModal from '../components/SetLinesModal';
 import EnterScoreModal from '../components/EnterScoreModal';
@@ -21,10 +22,13 @@ import {
 
 type ActiveTab = 'games' | 'bets';
 
-const Page = styled.main`
-  max-width: 1100px;
+// ── Page shell — widen for the Bets split view ─────────────────────────────────
+
+const Page = styled.main<{ $wide: boolean }>`
+  max-width: ${({ $wide }) => ($wide ? '1440px' : '1100px')};
   margin: 0 auto;
   padding: 28px 20px;
+  transition: max-width 0.2s;
 `;
 
 const PageHeader = styled.div`
@@ -42,7 +46,7 @@ const PageTitle = styled.h1`
   color: ${colors.text};
 `;
 
-// ─── Tab bar ─────────────────────────────────────────────────────────────────
+// ─── Tab bar ──────────────────────────────────────────────────────────────────
 
 const TabBar = styled.div`
   display: flex;
@@ -67,7 +71,7 @@ const Tab = styled.button<{ active: boolean }>`
   }
 `;
 
-// ─── Stats / banners (games tab) ─────────────────────────────────────────────
+// ─── Stats / banners (games tab) ──────────────────────────────────────────────
 
 const StatsRow = styled.div`
   display: flex;
@@ -109,9 +113,26 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
   color: ${({ variant }) => variant === 'error' ? colors.danger : colors.textMuted};
 `;
 
+// ─── Bets split layout ────────────────────────────────────────────────────────
+
+const BetsSplit = styled.div`
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+`;
+
+const BetsMain = styled.div`
+  flex: 1;
+  min-width: 0;   /* allow table's overflow-x scroll to kick in */
+`;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const Dashboard: React.FC = () => {
+interface DashboardProps {
+  adminToken: string;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('games');
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,13 +194,13 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const upcomingCount = games.filter((g) => g.status === 'upcoming').length;
-  const liveCount = games.filter((g) => g.status === 'live').length;
+  const upcomingCount  = games.filter((g) => g.status === 'upcoming').length;
+  const liveCount      = games.filter((g) => g.status === 'live').length;
   const resolvingCount = games.filter((g) => g.status === 'resolving').length;
-  const finalCount = games.filter((g) => g.status === 'final').length;
+  const finalCount     = games.filter((g) => g.status === 'final').length;
 
   return (
-    <Page>
+    <Page $wide={activeTab === 'bets'}>
       <PageHeader>
         <PageTitle>{activeTab === 'games' ? 'Games' : 'Bets'}</PageTitle>
         {activeTab === 'games' && (
@@ -243,8 +264,15 @@ const Dashboard: React.FC = () => {
         </>
       )}
 
-      {/* ── Bets tab ──────────────────────────────────────────────────────── */}
-      {activeTab === 'bets' && <BetsPanel />}
+      {/* ── Bets tab — split: bets left, user management right ────────────── */}
+      {activeTab === 'bets' && (
+        <BetsSplit>
+          <BetsMain>
+            <BetsPanel />
+          </BetsMain>
+          <UsersPanel adminToken={adminToken} />
+        </BetsSplit>
+      )}
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showAddGame && (
