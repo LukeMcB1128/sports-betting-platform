@@ -313,7 +313,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(403);
         res.end(JSON.stringify({
           error: user.status === 'denied'
-            ? 'Your account has been denied. Please contact support.'
+            ? 'Your account has been denied. Please contact admin.'
             : 'Your account is pending verification. Please wait for admin approval.',
           status: user.status,
         }));
