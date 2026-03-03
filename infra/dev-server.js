@@ -392,6 +392,29 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // DELETE /admin/users/:userId — permanently remove a denied user account
+    if (req.method === 'DELETE' && resource === 'admin' && id === 'users' && subId) {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const data = readData(USERS_FILE, { users: [] });
+      const before = data.users.length;
+      const target = data.users.find((u) => u.id === subId);
+      data.users = data.users.filter((u) => u.id !== subId);
+      if (data.users.length === before) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'User not found' }));
+        return;
+      }
+      writeData(USERS_FILE, data);
+      console.log(`[ADMIN] Removed user: ${target?.firstName} ${target?.lastName}`);
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
     // GET /admin/signin-log
     if (req.method === 'GET' && resource === 'admin' && id === 'signin-log') {
       if (!validateAdminToken(req)) {
