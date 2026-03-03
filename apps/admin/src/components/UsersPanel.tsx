@@ -5,6 +5,7 @@ import {
   fetchUsers,
   fetchSignInLog,
   updateUserStatus,
+  deleteUser,
   AdminUser,
   SignInLogEntry,
 } from '../api/usersApi';
@@ -244,6 +245,13 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
     } catch { /* silent */ }
   };
 
+  const removeUser = async (userId: string) => {
+    try {
+      await deleteUser(adminToken, userId);
+      setUsers((prev) => prev.filter((u) => u.id !== userId));
+    } catch { /* silent */ }
+  };
+
   const pending  = users.filter((u) => u.status === 'pending');
   const denied   = users.filter((u) => u.status === 'denied');
   const verified = users.filter((u) => u.status === 'verified');
@@ -307,6 +315,7 @@ const UsersPanel: React.FC<UsersPanelProps> = ({ adminToken }) => {
                 <ActionGroup>
                   <Btn $variant="accept" onClick={() => setStatus(u.id, 'verified')}>Accept</Btn>
                   <Btn $variant="reset"  onClick={() => setStatus(u.id, 'pending')}>Reset</Btn>
+                  <Btn $variant="deny"   onClick={() => removeUser(u.id)}>Remove</Btn>
                 </ActionGroup>
               </UserRow>
             ))

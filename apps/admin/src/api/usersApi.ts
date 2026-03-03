@@ -69,6 +69,14 @@ export async function updateUserStatus(
   return res.json();
 }
 
+export async function deleteUser(token: string, userId: string): Promise<void> {
+  const res = await fetch(`${API}/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Token': token },
+  });
+  if (!res.ok && res.status !== 204) throw new Error('Failed to delete user');
+}
+
 export async function fetchSignInLog(token: string): Promise<SignInLogEntry[]> {
   const res = await fetch(`${API}/admin/signin-log`, {
     headers: { 'X-Admin-Token': token },
