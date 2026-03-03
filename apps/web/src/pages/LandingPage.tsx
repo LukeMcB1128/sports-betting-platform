@@ -418,7 +418,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
         {/* ── Sign Up Success ──────────────────────────────────────────────── */}
         {tab === 'signup' && signUpDone && (
           <SuccessCard>
-            <SuccessIcon>⏳</SuccessIcon>
             <SuccessTitle>Request Submitted</SuccessTitle>
             <SuccessBody>
               Your account request for <strong>{firstName} {lastName}</strong> has been

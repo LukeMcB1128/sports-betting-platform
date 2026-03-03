@@ -277,10 +277,10 @@ const GamesTable: React.FC<GamesTableProps> = ({
                     {!isFinal && (
                       <Button
                         size="sm"
-                        variant={game.bettingEnabled ? 'ghost' : 'primary'}
+                        variant={game.bettingEnabled ? 'primary' : 'ghost'}
                         onClick={() => onEnableDisableBetting(game)}
                       >
-                        {game.bettingEnabled ? 'Disable Betting' : 'Enable Betting'}
+                        {game.bettingEnabled ? 'Enable Betting' : 'Disable Betting'}
                       </Button>
                     )}
 
