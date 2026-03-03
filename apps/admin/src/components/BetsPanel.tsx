@@ -255,10 +255,12 @@ const BetsPanel: React.FC = () => {
 
   // Stats
   const totalStaked = bets.reduce((s, b) => s + b.stake, 0);
+  const currStaked = bets.filter((b) => b.status === 'pending').reduce((s, b) => s + b.stake, 0);
   const pendingCount = bets.filter((b) => b.status === 'pending').length;
   const lossCount = bets.filter((b) => b.status === 'lost').length;
   const wonCount = bets.filter((b) => b.status === 'won').length;
   const potentialPayout = bets.filter((b) => b.status === 'pending').reduce((s, b) => s + b.payout, 0);
+  const totalWon = bets.filter((b) => b.status === 'won').reduce((s, b) => s + b.payout, 0);
 
   const header = (
     <thead>
@@ -282,32 +284,44 @@ const BetsPanel: React.FC = () => {
       {error && <Banner variant="error">{error}</Banner>}
 
       {!loading && !error && (
-        <StatsRow>
-          <StatCard>
-            <StatValue>{bets.length}</StatValue>
-            <StatLabel>Total Bets</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{formatMoney(totalStaked)}</StatValue>
-            <StatLabel>Total Staked</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue style={{ color: '#f59e0b' }}>{pendingCount}</StatValue>
-            <StatLabel>Pending</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue style={{ color: colors.danger }}>{lossCount}</StatValue>
-            <StatLabel>Lost</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue style={{ color: colors.success }}>{wonCount}</StatValue>
-            <StatLabel>Won</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue>{formatMoney(potentialPayout)}</StatValue>
-            <StatLabel>Potential Payout</StatLabel>
-          </StatCard>
-        </StatsRow>
+        <>
+          <StatsRow>
+            <StatCard>
+              <StatValue>{bets.length}</StatValue>
+              <StatLabel>Total Bets</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue style={{ color: '#f59e0b' }}>{pendingCount}</StatValue>
+              <StatLabel>Pending</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue style={{ color: colors.danger }}>{lossCount}</StatValue>
+              <StatLabel>Lost</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue style={{ color: colors.success }}>{wonCount}</StatValue>
+              <StatLabel>Won</StatLabel>
+            </StatCard>
+          </StatsRow>
+          <StatsRow>
+            <StatCard>
+              <StatValue>{formatMoney(currStaked)}</StatValue>
+              <StatLabel>Currently Staked</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{formatMoney(potentialPayout)}</StatValue>
+              <StatLabel>Potential Payout</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{formatMoney(totalStaked)}</StatValue>
+              <StatLabel>Total Staked</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{formatMoney(totalWon)}</StatValue>
+              <StatLabel>Total Won</StatLabel>
+            </StatCard>
+          </StatsRow>
+        </>
       )}
 
       <TableWrap>
