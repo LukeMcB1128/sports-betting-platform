@@ -4,6 +4,7 @@ import { Game, GameStatus, GameOdds } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import BetsPanel from '../components/BetsPanel';
+import UsersPanel from '../components/UsersPanel';
 import AddGameModal from '../components/AddGameModal';
 import SetLinesModal from '../components/SetLinesModal';
 import EnterScoreModal from '../components/EnterScoreModal';
@@ -19,7 +20,7 @@ import {
   removeGame,
 } from '../api/gamesApi';
 
-type ActiveTab = 'games' | 'bets';
+type ActiveTab = 'games' | 'bets' | 'users';
 
 const Page = styled.main`
   max-width: 1100px;
@@ -42,7 +43,7 @@ const PageTitle = styled.h1`
   color: ${colors.text};
 `;
 
-// ─── Tab bar ─────────────────────────────────────────────────────────────────
+// ─── Tab bar ──────────────────────────────────────────────────────────────────
 
 const TabBar = styled.div`
   display: flex;
@@ -67,7 +68,7 @@ const Tab = styled.button<{ active: boolean }>`
   }
 `;
 
-// ─── Stats / banners (games tab) ─────────────────────────────────────────────
+// ─── Stats / banners (games tab) ──────────────────────────────────────────────
 
 const StatsRow = styled.div`
   display: flex;
@@ -111,7 +112,11 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const Dashboard: React.FC = () => {
+interface DashboardProps {
+  adminToken: string;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('games');
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,15 +178,17 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const upcomingCount = games.filter((g) => g.status === 'upcoming').length;
-  const liveCount = games.filter((g) => g.status === 'live').length;
+  const upcomingCount  = games.filter((g) => g.status === 'upcoming').length;
+  const liveCount      = games.filter((g) => g.status === 'live').length;
   const resolvingCount = games.filter((g) => g.status === 'resolving').length;
-  const finalCount = games.filter((g) => g.status === 'final').length;
+  const finalCount     = games.filter((g) => g.status === 'final').length;
 
   return (
     <Page>
       <PageHeader>
-        <PageTitle>{activeTab === 'games' ? 'Games' : 'Bets'}</PageTitle>
+        <PageTitle>
+          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : 'Users'}
+        </PageTitle>
         {activeTab === 'games' && (
           <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
             + Add Game
@@ -196,6 +203,9 @@ const Dashboard: React.FC = () => {
         </Tab>
         <Tab active={activeTab === 'bets'} onClick={() => setActiveTab('bets')}>
           Bets
+        </Tab>
+        <Tab active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
+          Users
         </Tab>
       </TabBar>
 
@@ -245,6 +255,9 @@ const Dashboard: React.FC = () => {
 
       {/* ── Bets tab ──────────────────────────────────────────────────────── */}
       {activeTab === 'bets' && <BetsPanel />}
+
+      {/* ── Users tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'users' && <UsersPanel adminToken={adminToken} />}
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showAddGame && (

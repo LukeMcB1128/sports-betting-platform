@@ -1,0 +1,7 @@
+# Auth data — contains hashed passwords and sign-in logs.
+# Never commit these files; they are created automatically by the dev server.
+infra/users.json
+infra/signin-log.json
+
+# Claude worktrees
+.claude/worktrees/
