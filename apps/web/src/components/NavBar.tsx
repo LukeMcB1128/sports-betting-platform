@@ -19,6 +19,14 @@ const Nav = styled.nav`
   align-items: center;
   padding: 0 24px;
   gap: 32px;
+
+  /* Mobile: wrap into two rows */
+  @media (max-width: 768px) {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 10px 16px 0;
+    gap: 0;
+  }
 `;
 
 const Logo = styled.span`
@@ -34,6 +42,16 @@ const NavLinks = styled.div`
   align-items: center;
   gap: 4px;
   flex: 1;
+
+  /* Mobile: move to second row, full width, add top border */
+  @media (max-width: 768px) {
+    order: 3;
+    flex: 0 0 100%;
+    border-top: 1px solid ${colors.border};
+    margin-top: 8px;
+    padding: 4px 0;
+    gap: 2px;
+  }
 `;
 
 const NavLink = styled.a<{ active?: boolean }>`
@@ -44,6 +62,7 @@ const NavLink = styled.a<{ active?: boolean }>`
   color: ${({ active }) => (active ? colors.text : colors.textMuted)};
   background-color: ${({ active }) => (active ? colors.surfaceHover : 'transparent')};
   transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
 
   &:hover {
     background-color: ${colors.surfaceHover};
@@ -56,6 +75,12 @@ const RightSection = styled.div`
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
+
+  /* Mobile: push to far right on top row */
+  @media (max-width: 768px) {
+    margin-left: auto;
+    gap: 8px;
+  }
 `;
 
 const BalanceChip = styled.div`
@@ -68,18 +93,34 @@ const BalanceChip = styled.div`
   padding: 6px 14px;
   font-size: 14px;
   font-weight: 600;
+
+  @media (max-width: 768px) {
+    padding: 5px 10px;
+    font-size: 13px;
+    gap: 5px;
+  }
 `;
 
 const BalanceLabel = styled.span`
   color: ${colors.textMuted};
   font-weight: 400;
   font-size: 12px;
+
+  /* Hide the "Balance" label on mobile — the number speaks for itself */
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const UserName = styled.span`
   font-size: 13px;
   font-weight: 600;
   color: ${colors.text};
+
+  /* Hide username on mobile — not enough room */
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 const SignOutButton = styled.button`
@@ -90,12 +131,18 @@ const SignOutButton = styled.button`
   color: ${colors.textMuted};
   border: 1px solid ${colors.border};
   background: none;
+  white-space: nowrap;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 
   &:hover {
     background-color: ${colors.surfaceHover};
     color: ${colors.text};
     border-color: ${colors.textMuted};
+  }
+
+  @media (max-width: 768px) {
+    padding: 5px 10px;
+    font-size: 11px;
   }
 `;
 
