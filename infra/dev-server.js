@@ -507,6 +507,7 @@ const server = http.createServer(async (req, res) => {
     // POST /games
     if (req.method === 'POST' && resource === 'games') {
       const game = await readBody(req);
+      game.bettingEnabled = true; // auto-enable betting when a game is created
       games.unshift(game);
       console.log(`[ADD]    ${game.awayTeam} @ ${game.homeTeam} (${game.league})`);
       res.writeHead(201);
@@ -517,6 +518,11 @@ const server = http.createServer(async (req, res) => {
     // PUT /games/:id
     if (req.method === 'PUT' && resource === 'games' && id) {
       const updates = await readBody(req);
+      // auto-disable betting when a game goes live (admin can re-enable manually)
+      const existing = games.find((g) => g.id === id);
+      if (updates.status === 'live' && existing && existing.status !== 'live') {
+        updates.bettingEnabled = false;
+      }
       games = games.map((g) => (g.id === id ? { ...g, ...updates } : g));
       const updated = games.find((g) => g.id === id);
       if (!updated) {

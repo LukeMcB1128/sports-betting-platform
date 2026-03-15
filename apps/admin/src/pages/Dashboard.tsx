@@ -138,9 +138,9 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   };
 
   const handleUpdateStatus = async (gameId: string, status: GameStatus) => {
-    await updateGameStatus(gameId, status);
+    const updated = await updateGameStatus(gameId, status);
     setGames((prev) =>
-      prev.map((g) => (g.id === gameId ? { ...g, status } : g))
+      prev.map((g) => (g.id === gameId ? updated : g))
     );
   };
 

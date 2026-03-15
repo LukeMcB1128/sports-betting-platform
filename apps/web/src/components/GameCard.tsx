@@ -154,7 +154,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
   const isLive = game.status === 'live';
   const isResolving = game.status === 'resolving';
   const isFinal = game.status === 'final';
-  const bettingOpen = game.bettingEnabled !== true; // undefined → open (backward compat)
+  const bettingOpen = game.bettingEnabled !== false; // undefined → open (backward compat)
   const showScore = isLive || isResolving || isFinal;
 
   const awayScore = game.awayScore ?? 0;
