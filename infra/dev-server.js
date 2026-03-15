@@ -25,9 +25,11 @@
  *
  *   POST   /admin/login          → admin authentication → returns session token
  *   POST   /admin/logout         → invalidate session token
+ *   POST   /admin/verify-password  → verify admin password for destructive actions
  *   GET    /admin/users          → list all users, passwords excluded (admin only)
  *   PUT    /admin/users/:id      → update user status: verified|denied|pending (admin only)
  *   GET    /admin/signin-log     → get sign-in attempt log (admin only)
+ *   POST   /games/:id/void-bets    → void all pending bets for a game (admin only)
  *
  * Replace with the real ASP.NET Core API when that is ready.
  */
@@ -349,6 +351,24 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // POST /admin/verify-password
+    if (req.method === 'POST' && resource === 'admin' && id === 'verify-password') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const { password } = await readBody(req);
+      if (password === ADMIN_PASSWORD) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true }));
+      } else {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Incorrect password' }));
+      }
+      return;
+    }
+
     // GET /admin/users
     if (req.method === 'GET' && resource === 'admin' && id === 'users' && !subId) {
       if (!validateAdminToken(req)) {
@@ -457,6 +477,30 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      // Game-level guards
+      const betGame = games.find((g) => g.id === gameId);
+      if (!betGame) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Game not found' }));
+        return;
+      }
+      if (betGame.bettingEnabled === false) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Betting is currently closed for this game' }));
+        return;
+      }
+      if (betGame.lockedSides?.[side]) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Betting on this side is currently locked' }));
+        return;
+      }
+      const sideLimit = betGame.betLimits?.[side];
+      if (sideLimit && stake > sideLimit.maxStake) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: `Maximum stake for these odds is $${sideLimit.maxStake.toFixed(2)}` }));
+        return;
+      }
+
       const payout = calcPayout(stake, odds);
       const bet = {
         id: generateId(),
@@ -557,6 +601,33 @@ const server = http.createServer(async (req, res) => {
       console.log(`[REMOVE] id=${id}`);
       res.writeHead(204);
       res.end();
+      return;
+    }
+
+    // POST /games/:id/void-bets
+    if (req.method === 'POST' && resource === 'games' && id && subId === 'void-bets') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const voidGame = games.find((g) => g.id === id);
+      if (!voidGame) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Game not found' }));
+        return;
+      }
+      let voidedCount = 0;
+      bets = bets.map((bet) => {
+        if (bet.gameId !== id || bet.status !== 'pending') return bet;
+        balance = parseFloat((balance + bet.stake).toFixed(2));
+        voidedCount++;
+        console.log(`[VOID] ${bet.label} → VOID  balance=$${balance}`);
+        return { ...bet, status: 'void' };
+      });
+      console.log(`[VOID] ${voidedCount} bet(s) voided for game ${id}`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ voided: voidedCount }));
       return;
     }
 

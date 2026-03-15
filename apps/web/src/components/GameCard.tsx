@@ -155,6 +155,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
   const isResolving = game.status === 'resolving';
   const isFinal = game.status === 'final';
   const bettingOpen = game.bettingEnabled !== false; // undefined → open (backward compat)
+  const lockedSides = game.lockedSides ?? { home: false, away: false };
   const showScore = isLive || isResolving || isFinal;
 
   const awayScore = game.awayScore ?? 0;
@@ -222,12 +223,14 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                         odds={game.odds.moneyline.away}
                         selected={isSameBet(selected, 'moneyline', 'away')}
                         onSelect={() => handleSelect('moneyline', 'away', game.awayTeam, game.odds.moneyline.away)}
+                        disabled={lockedSides.away}
                       />
                       <OddsButton
                         label={game.homeTeam}
                         odds={game.odds.moneyline.home}
                         selected={isSameBet(selected, 'moneyline', 'home')}
                         onSelect={() => handleSelect('moneyline', 'home', game.homeTeam, game.odds.moneyline.home)}
+                        disabled={lockedSides.home}
                       />
                     </OddsRow>
                   </MarketGroup>
@@ -245,6 +248,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                           game.odds.spread.away.juice,
                           game.odds.spread.away.line,
                         )}
+                        disabled={lockedSides.away}
                       />
                       <OddsButton
                         label={formatSpreadLabel(game.homeTeam, game.odds.spread.home.line)}
@@ -256,6 +260,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                           game.odds.spread.home.juice,
                           game.odds.spread.home.line,
                         )}
+                        disabled={lockedSides.home}
                       />
                     </OddsRow>
                   </MarketGroup>
@@ -270,6 +275,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                     odds={selected.odds}
                     line={selected.line}
                     balance={balance}
+                    maxStake={game.betLimits?.[selected.side]?.maxStake}
                     onClose={() => setSelected(null)}
                     onSuccess={handleBetSuccess}
                   />
