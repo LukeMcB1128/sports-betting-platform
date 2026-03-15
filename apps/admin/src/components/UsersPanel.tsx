@@ -16,10 +16,18 @@ const Grid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const LogRow = styled.div`
   grid-column: 1 / -1;   /* sign-in log spans both columns */
+
+  @media (max-width: 768px) {
+    grid-column: auto;   /* single column — no spanning needed */
+  }
 `;
 
 // ── Cards ───────────────────────────────────────────────────────────────────────
@@ -126,6 +134,12 @@ const ActionGroup = styled.div`
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+
+  @media (max-width: 768px) {
+    gap: 4px;
+  }
 `;
 
 const Btn = styled.button<{ $variant: 'accept' | 'deny' | 'reset' }>`
