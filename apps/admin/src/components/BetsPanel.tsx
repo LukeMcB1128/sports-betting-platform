@@ -234,7 +234,7 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
   color: ${({ variant }) => variant === 'error' ? colors.danger : colors.textMuted};
 `;
 
-const COLS = 10;
+const COLS = 11;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -322,6 +322,7 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
     <thead>
       <tr>
         <Th>Placed</Th>
+        <Th>User</Th>
         <Th>Game</Th>
         <Th>Market</Th>
         <Th>Odds</Th>
@@ -399,6 +400,11 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
                     {/* Placed */}
                     <Td style={{ whiteSpace: 'nowrap', color: colors.textMuted, fontSize: 12 }}>
                       {formatDate(bet.placedAt)}
+                    </Td>
+
+                    {/* User */}
+                    <Td style={{fontSize: 12, color: colors.text}}>
+                      {bet.userName ?? '-'}
                     </Td>
 
                     {/* Game */}

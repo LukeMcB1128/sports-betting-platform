@@ -11,6 +11,7 @@ export interface PlaceBetPayload {
   line?: number;  // spread line at placement time (spread bets only)
   stake: number;
   cashAmount: number;
+  userName: string;
 }
 
 export interface PlaceBetResponse {
