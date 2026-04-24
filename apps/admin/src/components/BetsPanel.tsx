@@ -404,7 +404,7 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
 
                     {/* User */}
                     <Td style={{fontSize: 12, color: colors.text}}>
-                      {(bet as any).userName ?? (bet as any).userId ?? '-'}
+                      {bet.userName ?? '-'}
                     </Td>
 
                     {/* Game */}
