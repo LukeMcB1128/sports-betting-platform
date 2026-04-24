@@ -235,35 +235,37 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                     </OddsRow>
                   </MarketGroup>
 
-                  <MarketGroup>
-                    <MarketLabel>Spread</MarketLabel>
-                    <OddsRow>
-                      <OddsButton
-                        label={formatSpreadLabel(game.awayTeam, game.odds.spread.away.line)}
-                        odds={game.odds.spread.away.juice}
-                        selected={isSameBet(selected, 'spread', 'away')}
-                        onSelect={() => handleSelect(
-                          'spread', 'away',
-                          formatSpreadLabel(game.awayTeam, game.odds.spread.away.line),
-                          game.odds.spread.away.juice,
-                          game.odds.spread.away.line,
-                        )}
-                        disabled={lockedSides.away}
-                      />
-                      <OddsButton
-                        label={formatSpreadLabel(game.homeTeam, game.odds.spread.home.line)}
-                        odds={game.odds.spread.home.juice}
-                        selected={isSameBet(selected, 'spread', 'home')}
-                        onSelect={() => handleSelect(
-                          'spread', 'home',
-                          formatSpreadLabel(game.homeTeam, game.odds.spread.home.line),
-                          game.odds.spread.home.juice,
-                          game.odds.spread.home.line,
-                        )}
-                        disabled={lockedSides.home}
-                      />
-                    </OddsRow>
-                  </MarketGroup>
+                  {game.sport.toLowerCase() !== 'fights' && (
+                    <MarketGroup>
+                      <MarketLabel>Spread</MarketLabel>
+                      <OddsRow>
+                        <OddsButton
+                          label={formatSpreadLabel(game.awayTeam, game.odds.spread.away.line)}
+                          odds={game.odds.spread.away.juice}
+                          selected={isSameBet(selected, 'spread', 'away')}
+                          onSelect={() => handleSelect(
+                            'spread', 'away',
+                            formatSpreadLabel(game.awayTeam, game.odds.spread.away.line),
+                            game.odds.spread.away.juice,
+                            game.odds.spread.away.line,
+                          )}
+                          disabled={lockedSides.away}
+                        />
+                        <OddsButton
+                          label={formatSpreadLabel(game.homeTeam, game.odds.spread.home.line)}
+                          odds={game.odds.spread.home.juice}
+                          selected={isSameBet(selected, 'spread', 'home')}
+                          onSelect={() => handleSelect(
+                            'spread', 'home',
+                            formatSpreadLabel(game.homeTeam, game.odds.spread.home.line),
+                            game.odds.spread.home.juice,
+                            game.odds.spread.home.line,
+                          )}
+                          disabled={lockedSides.home}
+                        />
+                      </OddsRow>
+                    </MarketGroup>
+                  )}
                 </MarketsRow>
 
                 {selected && (
