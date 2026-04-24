@@ -171,11 +171,6 @@ const SuccessCard = styled.div`
   padding: 8px 0;
 `;
 
-const SuccessIcon = styled.div`
-  font-size: 40px;
-  margin-bottom: 16px;
-`;
-
 const SuccessTitle = styled.div`
   font-size: 17px;
   font-weight: 700;
@@ -206,14 +201,14 @@ const SwitchLink = styled.button`
 
 // ── Component ───────────────────────────────────────────────────────────────────
 
-type Tab = 'signin' | 'signup';
+type ActiveTab = 'signin' | 'signup';
 
 interface LandingPageProps {
   onSignIn: (user: AuthUser) => void;
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
-  const [tab, setTab] = useState<Tab>('signin');
+  const [tab, setTab] = useState<ActiveTab>('signin');
 
   // Shared fields
   const [firstName, setFirstName] = useState('');
@@ -234,7 +229,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onSignIn }) => {
     setPendingMsg(null);
   };
 
-  const switchTab = (t: Tab) => {
+  const switchTab = (t: ActiveTab) => {
     setTab(t);
     setSignUpDone(false);
     resetForm();
