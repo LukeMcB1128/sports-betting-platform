@@ -511,7 +511,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /bets — place a bet
-    if (req.method === 'POST' && resource === 'bets') {
+    if (req.method === 'POST' && resource === 'bets' && !id) {
       const { gameId, betType, side, label, odds, stake, line, cashAmount, userName } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
