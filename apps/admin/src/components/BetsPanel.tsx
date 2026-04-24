@@ -118,7 +118,11 @@ const Td = styled.td`
   tr:last-child & { border-bottom: none; }
 `;
 
-const Tr = styled.tr`
+const Tr = styled.tr<{ highlight?: boolean }>`
+  ${({ highlight }) => highlight && `
+    td { background-color: rgba(59,130,246,0.06); }
+    td:first-child { border-left: 3px solid #3b82f6; }
+  `}
   &:hover td { background-color: ${colors.surfaceHover}; }
 `;
 
@@ -307,6 +311,13 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
   const potentialPayout = activeBets.reduce((s, b) => s + b.payout, 0);
   const totalWon = bets.filter((b) => b.status === 'won').reduce((s, b) => s + b.payout, 0);
 
+  // Sort: awaiting_payment first, then pending, then settled — newest within each group
+  const STATUS_ORDER: Record<BetStatus, number> = { awaiting_payment: 0, pending: 1, won: 2, lost: 3, void: 4 };
+  const sortedBets = [...bets].sort((a, b) => {
+    if (STATUS_ORDER[a.status] !== STATUS_ORDER[b.status]) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+    return new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime();
+  });
+
   const header = (
     <thead>
       <tr>
@@ -379,12 +390,12 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
                 <EmptyCell colSpan={COLS}>No bets placed yet.</EmptyCell>
               </tr>
             ) : (
-              bets.map((bet) => {
+              sortedBets.map((bet) => {
                 const game = gameMap[bet.gameId] as Game | undefined;
                 const profit = parseFloat((bet.payout - bet.stake).toFixed(2));
 
                 return (
-                  <Tr key={bet.id}>
+                  <Tr key={bet.id} highlight={bet.status === 'awaiting_payment'}>
                     {/* Placed */}
                     <Td style={{ whiteSpace: 'nowrap', color: colors.textMuted, fontSize: 12 }}>
                       {formatDate(bet.placedAt)}
@@ -441,21 +452,23 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
                     </Td>
 
                     {/* Actions */}
-                    <Td style={{ display: 'flex', gap: 6 }}>
-                      {bet.status === 'awaiting_payment' && (
-                        <ConfirmButton
-                          onClick={() => handleConfirmPayment(bet.id)}
-                          disabled={confirming.has(bet.id)}
+                    <Td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {bet.status === 'awaiting_payment' && (
+                          <ConfirmButton
+                            onClick={() => handleConfirmPayment(bet.id)}
+                            disabled={confirming.has(bet.id)}
+                          >
+                            {confirming.has(bet.id) ? 'Confirming…' : 'Mark as Paid'}
+                          </ConfirmButton>
+                        )}
+                        <RemoveButton
+                          onClick={() => handleRemove(bet.id)}
+                          disabled={removing.has(bet.id)}
                         >
-                          {confirming.has(bet.id) ? 'Confirming…' : 'Mark as Paid'}
-                        </ConfirmButton>
-                      )}
-                      <RemoveButton
-                        onClick={() => handleRemove(bet.id)}
-                        disabled={removing.has(bet.id)}
-                      >
-                        {removing.has(bet.id) ? 'Removing…' : 'Remove'}
-                      </RemoveButton>
+                          {removing.has(bet.id) ? 'Removing…' : 'Remove'}
+                        </RemoveButton>
+                      </div>
                     </Td>
                   </Tr>
                 );

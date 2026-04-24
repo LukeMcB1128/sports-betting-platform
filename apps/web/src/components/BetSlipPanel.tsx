@@ -211,15 +211,12 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
   gameId, betType, side, label, odds, line, maxStake, onClose, onSuccess,
 }) => {
   const [stakeStr, setStakeStr] = useState('');
-  const [cashStr, setCashStr] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const stake = parseFloat(stakeStr);
-  const cashAmount = parseFloat(cashStr);
   const validStake = !isNaN(stake) && stake > 0;
-  const validCash = !isNaN(cashAmount) && cashAmount > 0;
   const payout = validStake ? calcPayout(stake, odds) : 0;
   const profit = validStake ? parseFloat((payout - stake).toFixed(2)) : 0;
 
@@ -228,22 +225,16 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
     setStakeStr(e.target.value);
   };
 
-  const handleCashChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setError(null);
-    setCashStr(e.target.value);
-  };
-
   const handleSubmit = async () => {
     if (!validStake) { setError('Enter a valid bet amount.'); return; }
     if (stake < 0.01) { setError('Minimum bet is $0.01.'); return; }
     if (maxStake && stake > maxStake) { setError(`Max bet for these odds is $${maxStake.toFixed(2)}`); return; }
-    if (!validCash) { setError('Enter the cash amount you are handing over.'); return; }
-    if (cashAmount < 0.01) { setError('Cash amount must be at least $0.01.'); return; }
 
     setLoading(true);
     setError(null);
     try {
-      await placeBet({ gameId, betType, side, label, odds, line, stake, cashAmount });
+      // cashAmount equals stake — the bet amount is what the user pays in cash
+      await placeBet({ gameId, betType, side, label, odds, line, stake, cashAmount: stake });
       setSuccess(true);
       setTimeout(() => {
         onSuccess();
@@ -299,27 +290,12 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
         )}
       </InputRow>
 
-      <InputRow style={{ marginTop: 8 }}>
-        <StakeWrapper>
-          <DollarSign>$</DollarSign>
-          <StakeInput
-            type="number"
-            min="0.01"
-            step="0.01"
-            placeholder="Cash you're handing over"
-            value={cashStr}
-            onChange={handleCashChange}
-            disabled={loading || success}
-          />
-        </StakeWrapper>
-      </InputRow>
-
       {error && <ErrorMsg>{error}</ErrorMsg>}
-      {success && <SuccessMsg>Bet submitted! Pay your cash and it will be confirmed shortly.</SuccessMsg>}
+      {success && <SuccessMsg>Bet submitted! Hand over your cash and it will be confirmed shortly.</SuccessMsg>}
 
       <PlaceBetButton
         onClick={handleSubmit}
-        disabled={!validStake || !validCash || loading || success}
+        disabled={!validStake || loading || success}
         loading={loading}
       >
         {loading ? 'Submitting…' : success ? 'Submitted!' : 'Submit Bet'}
