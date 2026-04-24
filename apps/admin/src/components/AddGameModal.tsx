@@ -11,12 +11,13 @@ interface AddGameModalProps {
   onAdd: (game: Game) => void;
 }
 
-const SPORTS = ['Basketball', 'Football', 'Baseball', 'Soccer'];
+const SPORTS = ['Basketball', 'Football', 'Baseball', 'Soccer', 'Fights'];
 const LEAGUES: Record<string, string[]> = {
   Basketball: ['Season', 'Tournament', 'Playoffs', 'Preseason'],
   Football: ['Season', 'Playoffs', 'Scrimmage'],
   Baseball: ['Season', 'Tournament', 'Playoffs', 'Preseason'],
   Soccer: ['Season', 'Tournament', 'Playoffs', 'Scrimmage'],
+  Fights: ['Boxing', 'MMA'],
 };
 
 const Form = styled.form`
