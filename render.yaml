@@ -13,7 +13,9 @@ services:
         sync: false          # set to your Vercel URLs, e.g. https://yourapp.vercel.app,https://youradmin.vercel.app
       - key: NODE_ENV
         value: production
+      - key: DATA_DIR
+        value: /opt/render/project/data
     disk:
       name: sbp-data
-      mountPath: /opt/render/project/src/infra
+      mountPath: /opt/render/project/data
       sizeGB: 1              # persists users.json and signin-log.json across deploys

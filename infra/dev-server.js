@@ -70,9 +70,11 @@ const isRateLimited = (ip) => {
 const resetRateLimit = (ip) => rateLimitMap.delete(ip);
 
 // ── File paths for persistent auth data ────────────────────────────────────────
-// These files are .gitignored; the server creates them automatically on first run.
-const USERS_FILE = path.join(__dirname, 'users.json');
-const LOG_FILE   = path.join(__dirname, 'signin-log.json');
+// DATA_DIR lets Render mount a persistent disk at a separate path without
+// overwriting the source files in infra/. Defaults to __dirname for local dev.
+const DATA_DIR   = process.env.DATA_DIR || __dirname;
+const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const LOG_FILE   = path.join(DATA_DIR, 'signin-log.json');
 
 // ── Admin credentials ───────────────────────────────────────────────────────────
 // Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables in production.
