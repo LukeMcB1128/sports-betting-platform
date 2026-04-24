@@ -459,7 +459,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bets — place a bet
     if (req.method === 'POST' && resource === 'bets') {
-      const { gameId, betType, side, label, odds, stake, line } = await readBody(req);
+      const { gameId, betType, side, label, odds, stake, line, cashAmount } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -511,16 +511,42 @@ const server = http.createServer(async (req, res) => {
         odds,
         ...(line != null ? { line } : {}),
         stake,
+        cashAmount,
         payout,
-        status: 'pending',
+        status: 'awaiting_payment',
         placedAt: new Date().toISOString(),
       };
 
       bets.unshift(bet);
-      balance = parseFloat((balance - stake).toFixed(2));
-      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  balance=$${balance}`);
+      // No balance deduction — payment confirmed in cash by admin
+      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  cash=$${cashAmount}  status=awaiting_payment`);
       res.writeHead(201);
-      res.end(JSON.stringify({ bet, balance }));
+      res.end(JSON.stringify({ bet }));
+      return;
+    }
+
+    // POST /bets/:id/confirm-payment — admin confirms cash received, activates bet
+    if (req.method === 'POST' && resource === 'bets' && id && subId === 'confirm-payment') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const betIdx = bets.findIndex((b) => b.id === id);
+      if (betIdx === -1) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Bet not found' }));
+        return;
+      }
+      if (bets[betIdx].status !== 'awaiting_payment') {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Bet is not awaiting payment' }));
+        return;
+      }
+      bets[betIdx] = { ...bets[betIdx], status: 'pending' };
+      console.log(`[CONFIRM] Bet ${id} → pending (cash confirmed)`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ bet: bets[betIdx] }));
       return;
     }
 
@@ -619,11 +645,18 @@ const server = http.createServer(async (req, res) => {
       }
       let voidedCount = 0;
       bets = bets.map((bet) => {
-        if (bet.gameId !== id || bet.status !== 'pending') return bet;
-        balance = parseFloat((balance + bet.stake).toFixed(2));
-        voidedCount++;
-        console.log(`[VOID] ${bet.label} → VOID  balance=$${balance}`);
-        return { ...bet, status: 'void' };
+        if (bet.gameId !== id) return bet;
+        if (bet.status === 'awaiting_payment') {
+          voidedCount++;
+          console.log(`[VOID] ${bet.label} → VOID (payment not confirmed)`);
+          return { ...bet, status: 'void' };
+        }
+        if (bet.status === 'pending') {
+          voidedCount++;
+          console.log(`[VOID] ${bet.label} → VOID`);
+          return { ...bet, status: 'void' };
+        }
+        return bet;
       });
       console.log(`[VOID] ${voidedCount} bet(s) voided for game ${id}`);
       res.writeHead(200);

@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Game } from '../types';
+import { Game } from '../types'; // used by groupGames type
 import { colors } from '../styles/GlobalStyles';
 import GameCard from '../components/GameCard';
 import useGames from '../hooks/useGames';
@@ -103,12 +103,7 @@ const EmptyTitle = styled.p`
   margin-bottom: 8px;
 `;
 
-interface HomeProps {
-  balance: number;
-  onBalanceChange: (newBalance: number) => void;
-}
-
-const Home: React.FC<HomeProps> = ({ balance, onBalanceChange }) => {
+const Home: React.FC = () => {
   const games = useGames(FALLBACK_GAMES);
   const groups = groupGames(games);
 
@@ -137,8 +132,6 @@ const Home: React.FC<HomeProps> = ({ balance, onBalanceChange }) => {
                 <GameCard
                   key={game.id}
                   game={game}
-                  balance={balance}
-                  onBalanceChange={onBalanceChange}
                 />
               ))}
             </GameGrid>

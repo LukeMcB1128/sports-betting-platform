@@ -17,7 +17,7 @@ export interface LockedSides {
 
 export type BetType = 'moneyline' | 'spread';
 export type BetSide = 'home' | 'away';
-export type BetStatus = 'pending' | 'won' | 'lost' | 'void';
+export type BetStatus = 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
 
 export interface Bet {
   id: string;
@@ -28,6 +28,7 @@ export interface Bet {
   odds: number;
   stake: number;
   payout: number;
+  cashAmount: number; // cash declared by user at submission
   status: BetStatus;
   placedAt: string; // ISO string
 }
