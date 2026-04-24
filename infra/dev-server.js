@@ -511,8 +511,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /bets — place a bet
-    if (req.method === 'POST' && resource === 'bets') {
-      const { gameId, betType, side, label, odds, stake, line, cashAmount } = await readBody(req);
+    if (req.method === 'POST' && resource === 'bets' && !id) {
+      const { gameId, betType, side, label, odds, stake, line, cashAmount, userName } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -522,11 +522,6 @@ const server = http.createServer(async (req, res) => {
       if (typeof stake !== 'number' || stake <= 0) {
         res.writeHead(400);
         res.end(JSON.stringify({ error: 'Stake must be a positive number' }));
-        return;
-      }
-      if (stake > balance) {
-        res.writeHead(400);
-        res.end(JSON.stringify({ error: 'Insufficient balance' }));
         return;
       }
 
@@ -566,6 +561,7 @@ const server = http.createServer(async (req, res) => {
         stake,
         cashAmount,
         payout,
+        userName: userName || 'Unknown',
         status: 'awaiting_payment',
         placedAt: new Date().toISOString(),
       };

@@ -106,6 +106,9 @@ const EmptyTitle = styled.p`
 const Home: React.FC = () => {
   const games = useGames(FALLBACK_GAMES);
   const groups = groupGames(games);
+  const storedUser = localStorage.getItem('authedUser');
+  const authedUser = storedUser ? JSON.parse(storedUser) : null;
+  const userName = authedUser ? `${authedUser.firstName} ${authedUser.lastName}` : '';
 
   return (
     <Page>
@@ -132,6 +135,7 @@ const Home: React.FC = () => {
                 <GameCard
                   key={game.id}
                   game={game}
+                  userName={userName}
                 />
               ))}
             </GameGrid>
