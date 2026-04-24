@@ -1,8 +1,23 @@
 export type GameStatus = 'upcoming' | 'live' | 'resolving' | 'final';
 
+export interface BetSideLimit {
+  maxStake: number;
+  maxPayout: number;
+}
+
+export interface BetLimits {
+  home: BetSideLimit;
+  away: BetSideLimit;
+}
+
+export interface LockedSides {
+  home: boolean;
+  away: boolean;
+}
+
 export type BetType = 'moneyline' | 'spread';
 export type BetSide = 'home' | 'away';
-export type BetStatus = 'pending' | 'won' | 'lost' | 'void';
+export type BetStatus = 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
 
 export interface Bet {
   id: string;
@@ -13,6 +28,8 @@ export interface Bet {
   odds: number;
   stake: number;
   payout: number;
+  cashAmount: number; // cash declared by user at submission
+  userName: string;
   status: BetStatus;
   placedAt: string; // ISO string
 }
@@ -46,6 +63,8 @@ export interface Game {
   awayScore?: number;
   odds: GameOdds;
   bettingEnabled: boolean;
+  betLimits?: BetLimits;
+  lockedSides?: LockedSides;
 }
 
 // Form shapes (all strings before parsing)

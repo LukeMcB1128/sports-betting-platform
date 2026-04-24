@@ -3,7 +3,8 @@ import styled from 'styled-components';
 import { colors } from '../styles/GlobalStyles';
 
 interface NavBarProps {
-  balance: number | null;
+  userName: string;
+  onSignOut: () => void;
 }
 
 const Nav = styled.nav`
@@ -17,6 +18,14 @@ const Nav = styled.nav`
   align-items: center;
   padding: 0 24px;
   gap: 32px;
+
+  /* Mobile: wrap into two rows */
+  @media (max-width: 768px) {
+    height: auto;
+    flex-wrap: wrap;
+    padding: 10px 16px 0;
+    gap: 0;
+  }
 `;
 
 const Logo = styled.span`
@@ -32,6 +41,16 @@ const NavLinks = styled.div`
   align-items: center;
   gap: 4px;
   flex: 1;
+
+  /* Mobile: move to second row, full width, add top border */
+  @media (max-width: 768px) {
+    order: 3;
+    flex: 0 0 100%;
+    border-top: 1px solid ${colors.border};
+    margin-top: 8px;
+    padding: 4px 0;
+    gap: 2px;
+  }
 `;
 
 const NavLink = styled.a<{ active?: boolean }>`
@@ -42,6 +61,7 @@ const NavLink = styled.a<{ active?: boolean }>`
   color: ${({ active }) => (active ? colors.text : colors.textMuted)};
   background-color: ${({ active }) => (active ? colors.surfaceHover : 'transparent')};
   transition: background-color 0.15s, color 0.15s;
+  white-space: nowrap;
 
   &:hover {
     background-color: ${colors.surfaceHover};
@@ -49,46 +69,54 @@ const NavLink = styled.a<{ active?: boolean }>`
   }
 `;
 
-const AdminLink = styled.a`
-  padding: 5px 11px;
+const RightSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+
+  /* Mobile: push to far right on top row */
+  @media (max-width: 768px) {
+    margin-left: auto;
+    gap: 8px;
+  }
+`;
+
+const UserName = styled.span`
+  font-size: 13px;
+  font-weight: 600;
+  color: ${colors.text};
+
+  /* Hide username on mobile — not enough room */
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const SignOutButton = styled.button`
+  padding: 5px 12px;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
   color: ${colors.textMuted};
   border: 1px solid ${colors.border};
+  background: none;
+  white-space: nowrap;
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
-  flex-shrink: 0;
 
   &:hover {
     background-color: ${colors.surfaceHover};
     color: ${colors.text};
     border-color: ${colors.textMuted};
   }
+
+  @media (max-width: 768px) {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
 `;
 
-const BalanceChip = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background-color: ${colors.surfaceHover};
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 14px;
-  font-weight: 600;
-  flex-shrink: 0;
-`;
-
-const BalanceLabel = styled.span`
-  color: ${colors.textMuted};
-  font-weight: 400;
-  font-size: 12px;
-`;
-
-const formatBalance = (n: number): string =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const NavBar: React.FC<NavBarProps> = ({ balance }) => {
+const NavBar: React.FC<NavBarProps> = ({ userName, onSignOut }) => {
   const isMyBets = window.location.pathname === '/bets';
 
   return (
@@ -98,13 +126,10 @@ const NavBar: React.FC<NavBarProps> = ({ balance }) => {
         <NavLink href="/" active={!isMyBets}>Games</NavLink>
         <NavLink href="/bets" active={isMyBets}>My Bets</NavLink>
       </NavLinks>
-      <AdminLink href="http://localhost:3001" target="_blank" rel="noreferrer">
-        Admin
-      </AdminLink>
-      <BalanceChip>
-        <BalanceLabel>Balance</BalanceLabel>
-        {balance !== null ? `$${formatBalance(balance)}` : '—'}
-      </BalanceChip>
+      <RightSection>
+        <UserName>{userName}</UserName>
+        <SignOutButton onClick={onSignOut}>Sign Out</SignOutButton>
+      </RightSection>
     </Nav>
   );
 };

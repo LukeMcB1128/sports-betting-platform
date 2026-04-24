@@ -6,13 +6,12 @@ import Button from './Button';
 
 interface GamesTableProps {
   games: Game[];
-  onSetLines: (game: Game) => void;
   onUpdateStatus: (gameId: string, status: GameStatus) => void;
   onUpdateOdds: (gameId: string, odds: GameOdds) => void;
-  onRemove: (gameId: string) => void;
   onTogglePublish: (gameId: string, published: boolean) => void;
   onEnterScore: (game: Game) => void;
   onEnableDisableBetting: (game: Game) => void;
+  onAdvanced: (game: Game) => void;
 }
 
 const TableWrap = styled.div`
@@ -149,7 +148,7 @@ const EmptyCell = styled.td`
 const COLS = 7;
 
 const GamesTable: React.FC<GamesTableProps> = ({
-  games, onSetLines, onUpdateStatus, onRemove, onTogglePublish, onEnterScore, onEnableDisableBetting
+  games, onUpdateStatus, onTogglePublish, onEnterScore, onEnableDisableBetting, onAdvanced
 }) => {
   const header = (
     <thead>
@@ -287,17 +286,9 @@ const GamesTable: React.FC<GamesTableProps> = ({
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => onSetLines(game)}
-                      disabled={isLive || isResolving || isFinal}
+                      onClick={() => onAdvanced(game)}
                     >
-                      Set Lines
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="danger"
-                      onClick={() => onRemove(game.id)}
-                    >
-                      Remove
+                      Advanced
                     </Button>
                   </ActionCell>
                 </Td>

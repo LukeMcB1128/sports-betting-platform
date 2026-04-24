@@ -55,8 +55,15 @@ type Errors = Partial<Record<keyof SetLinesFormData, string>>;
 
 const toStr = (n: number): string => (n > 0 ? `+${n}` : String(n));
 
+// Juice / moneyline: whole numbers only (e.g. -110, +130)
 const parseOdds = (val: string): number | null => {
   const n = parseInt(val.replace(/\s/g, ''), 10);
+  return isNaN(n) ? null : n;
+};
+
+// Spread line: decimals allowed (e.g. -1.5, +0.5, 0.5)
+const parseSpreadLine = (val: string): number | null => {
+  const n = parseFloat(val.replace(/\s/g, ''));
   return isNaN(n) ? null : n;
 };
 
@@ -67,12 +74,19 @@ const validateOddsField = (val: string, label: string): string | undefined => {
   return undefined;
 };
 
+const validateLineField = (val: string, label: string): string | undefined => {
+  const n = parseSpreadLine(val);
+  if (n === null) return `${label} must be a number (e.g. -1.5, +0.5)`;
+  if (n === 0) return `${label} cannot be 0`;
+  return undefined;
+};
+
 const validate = (f: SetLinesFormData): Errors => ({
-  mlHome: validateOddsField(f.mlHome, 'Home ML'),
-  mlAway: validateOddsField(f.mlAway, 'Away ML'),
-  spreadHomeLine: validateOddsField(f.spreadHomeLine, 'Home line'),
+  mlHome:          validateOddsField(f.mlHome, 'Home ML'),
+  mlAway:          validateOddsField(f.mlAway, 'Away ML'),
+  spreadHomeLine:  validateLineField(f.spreadHomeLine, 'Home line'),
   spreadHomeJuice: validateOddsField(f.spreadHomeJuice, 'Home juice'),
-  spreadAwayLine: validateOddsField(f.spreadAwayLine, 'Away line'),
+  spreadAwayLine:  validateLineField(f.spreadAwayLine, 'Away line'),
   spreadAwayJuice: validateOddsField(f.spreadAwayJuice, 'Away juice'),
 });
 
@@ -108,11 +122,11 @@ const SetLinesModal: React.FC<SetLinesModalProps> = ({ game, onClose, onSave }) 
       },
       spread: {
         home: {
-          line: parseOdds(form.spreadHomeLine)!,
+          line: parseSpreadLine(form.spreadHomeLine)!,
           juice: parseOdds(form.spreadHomeJuice)!,
         },
         away: {
-          line: parseOdds(form.spreadAwayLine)!,
+          line: parseSpreadLine(form.spreadAwayLine)!,
           juice: parseOdds(form.spreadAwayJuice)!,
         },
       },

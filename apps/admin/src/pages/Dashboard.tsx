@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Game, GameStatus, GameOdds } from '../types';
+import { Game, GameStatus, GameOdds, BetLimits, LockedSides } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import BetsPanel from '../components/BetsPanel';
+import UsersPanel from '../components/UsersPanel';
 import AddGameModal from '../components/AddGameModal';
-import SetLinesModal from '../components/SetLinesModal';
+import AdvancedGameModal from '../components/AdvancedGameModal';
 import EnterScoreModal from '../components/EnterScoreModal';
 import Button from '../components/Button';
 import {
@@ -17,9 +18,12 @@ import {
   updateGameScore,
   updateBettingEnabled,
   removeGame,
+  saveBetLimits,
+  updateLockedSides,
+  voidAllBets,
 } from '../api/gamesApi';
 
-type ActiveTab = 'games' | 'bets';
+type ActiveTab = 'games' | 'bets' | 'users';
 
 const Page = styled.main`
   max-width: 1100px;
@@ -42,7 +46,7 @@ const PageTitle = styled.h1`
   color: ${colors.text};
 `;
 
-// ─── Tab bar ─────────────────────────────────────────────────────────────────
+// ─── Tab bar ──────────────────────────────────────────────────────────────────
 
 const TabBar = styled.div`
   display: flex;
@@ -67,7 +71,7 @@ const Tab = styled.button<{ active: boolean }>`
   }
 `;
 
-// ─── Stats / banners (games tab) ─────────────────────────────────────────────
+// ─── Stats / banners (games tab) ──────────────────────────────────────────────
 
 const StatsRow = styled.div`
   display: flex;
@@ -111,14 +115,21 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-const Dashboard: React.FC = () => {
+interface DashboardProps {
+  adminToken: string;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('games');
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddGame, setShowAddGame] = useState(false);
-  const [editLinesGame, setEditLinesGame] = useState<Game | null>(null);
+  const [advancedGameId, setAdvancedGameId] = useState<string | null>(null);
   const [enterScoreGame, setEnterScoreGame] = useState<Game | null>(null);
+
+  // Derive advancedGame live from games array so the modal always has fresh state
+  const advancedGame = advancedGameId ? games.find((g) => g.id === advancedGameId) ?? null : null;
 
   useEffect(() => {
     fetchGames()
@@ -133,9 +144,9 @@ const Dashboard: React.FC = () => {
   };
 
   const handleUpdateStatus = async (gameId: string, status: GameStatus) => {
-    await updateGameStatus(gameId, status);
+    const updated = await updateGameStatus(gameId, status);
     setGames((prev) =>
-      prev.map((g) => (g.id === gameId ? { ...g, status } : g))
+      prev.map((g) => (g.id === gameId ? updated : g))
     );
   };
 
@@ -173,15 +184,32 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const upcomingCount = games.filter((g) => g.status === 'upcoming').length;
-  const liveCount = games.filter((g) => g.status === 'live').length;
+  const handleSaveBetLimits = async (gameId: string, betLimits: BetLimits) => {
+    const updated = await saveBetLimits(gameId, betLimits);
+    setGames((prev) => prev.map((g) => (g.id === gameId ? updated : g)));
+  };
+
+  const handleUpdateLockedSides = async (gameId: string, lockedSides: LockedSides) => {
+    const updated = await updateLockedSides(gameId, lockedSides);
+    setGames((prev) => prev.map((g) => (g.id === gameId ? updated : g)));
+  };
+
+  const handleVoidAllBets = async (gameId: string) => {
+    await voidAllBets(gameId, adminToken);
+    // bets panel will refresh on its own poll; no game state change needed
+  };
+
+  const upcomingCount  = games.filter((g) => g.status === 'upcoming').length;
+  const liveCount      = games.filter((g) => g.status === 'live').length;
   const resolvingCount = games.filter((g) => g.status === 'resolving').length;
-  const finalCount = games.filter((g) => g.status === 'final').length;
+  const finalCount     = games.filter((g) => g.status === 'final').length;
 
   return (
     <Page>
       <PageHeader>
-        <PageTitle>{activeTab === 'games' ? 'Games' : 'Bets'}</PageTitle>
+        <PageTitle>
+          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : 'Users'}
+        </PageTitle>
         {activeTab === 'games' && (
           <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
             + Add Game
@@ -196,6 +224,9 @@ const Dashboard: React.FC = () => {
         </Tab>
         <Tab active={activeTab === 'bets'} onClick={() => setActiveTab('bets')}>
           Bets
+        </Tab>
+        <Tab active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
+          Users
         </Tab>
       </TabBar>
 
@@ -232,19 +263,21 @@ const Dashboard: React.FC = () => {
 
           <GamesTable
             games={games}
-            onSetLines={setEditLinesGame}
             onUpdateStatus={handleUpdateStatus}
             onUpdateOdds={handleSaveLines}
             onTogglePublish={handleTogglePublish}
-            onRemove={handleRemove}
             onEnterScore={setEnterScoreGame}
             onEnableDisableBetting={handleEnableDisableBetting}
+            onAdvanced={(game) => setAdvancedGameId(game.id)}
           />
         </>
       )}
 
       {/* ── Bets tab ──────────────────────────────────────────────────────── */}
-      {activeTab === 'bets' && <BetsPanel />}
+      {activeTab === 'bets' && <BetsPanel adminToken={adminToken} />}
+
+      {/* ── Users tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'users' && <UsersPanel adminToken={adminToken} />}
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showAddGame && (
@@ -254,11 +287,19 @@ const Dashboard: React.FC = () => {
         />
       )}
 
-      {editLinesGame && (
-        <SetLinesModal
-          game={editLinesGame}
-          onClose={() => setEditLinesGame(null)}
-          onSave={handleSaveLines}
+      {advancedGame && (
+        <AdvancedGameModal
+          game={advancedGame}
+          adminToken={adminToken}
+          onClose={() => setAdvancedGameId(null)}
+          onSaveLines={handleSaveLines}
+          onSaveBetLimits={handleSaveBetLimits}
+          onUpdateLockedSides={handleUpdateLockedSides}
+          onVoidAllBets={handleVoidAllBets}
+          onRemove={(gameId) => {
+            handleRemove(gameId);
+            setAdvancedGameId(null);
+          }}
         />
       )}
 

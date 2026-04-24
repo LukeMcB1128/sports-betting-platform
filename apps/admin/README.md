@@ -71,7 +71,7 @@ The default view. Shows four stat cards (Upcoming / Live / Resolving / Final cou
 
 ### Bets Tab
 
-Shows all bets placed by bettors via the web app. Includes a stats row (Total Bets · Total Staked · Pending · Potential Payout) and a sortable table with a **Remove** button per row.
+Shows all bets placed by bettors via the web app. Includes a stats row (Total Bets · Total Staked · Pending · Potential Payout) and a table with a **Remove** button per row.
 
 ---
 

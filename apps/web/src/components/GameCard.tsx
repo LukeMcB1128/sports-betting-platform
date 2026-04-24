@@ -7,8 +7,7 @@ import BetSlipPanel from './BetSlipPanel';
 
 interface GameCardProps {
   game: Game;
-  balance: number;
-  onBalanceChange: (newBalance: number) => void;
+  userName: string;
 }
 
 interface SelectedBet {
@@ -133,9 +132,11 @@ const OddsRow = styled.div`
   gap: 4px;
 `;
 
-const formatTime = (iso: string): string => {
+const formatDateTime = (iso: string): string => {
   const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const date = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${date} · ${time}`;
 };
 
 const formatSpreadLabel = (team: string, line: number): string => {
@@ -146,13 +147,14 @@ const formatSpreadLabel = (team: string, line: number): string => {
 const isSameBet = (a: SelectedBet | null, betType: BetType, side: BetSide) =>
   a !== null && a.betType === betType && a.side === side;
 
-const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) => {
+const GameCard: React.FC<GameCardProps> = ({ game, userName }) => {
   const [selected, setSelected] = useState<SelectedBet | null>(null);
 
   const isLive = game.status === 'live';
   const isResolving = game.status === 'resolving';
   const isFinal = game.status === 'final';
   const bettingOpen = game.bettingEnabled !== false; // undefined → open (backward compat)
+  const lockedSides = game.lockedSides ?? { home: false, away: false };
   const showScore = isLive || isResolving || isFinal;
 
   const awayScore = game.awayScore ?? 0;
@@ -160,7 +162,8 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
   const awayWon = isFinal && awayScore > homeScore;
   const homeWon = isFinal && homeScore > awayScore;
 
-  const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? 'Final' : formatTime(game.startTime);
+  const gameDate = new Date(game.startTime).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? `${gameDate} · Final` : formatDateTime(game.startTime);
 
   const handleSelect = (betType: BetType, side: BetSide, label: string, odds: number, line?: number) => {
     if (!bettingOpen) return;
@@ -177,15 +180,14 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
     if (!bettingOpen && selected) setSelected(null);
   }, [bettingOpen, selected]);
 
-  const handleBetSuccess = (newBalance: number) => {
+  const handleBetSuccess = () => {
     setSelected(null);
-    onBalanceChange(newBalance);
   };
 
   return (
     <Card>
       <CardHeader>
-        <GameMeta>{game.league} · {metaTime}</GameMeta>
+        <GameMeta>{game.sport} · {game.league} · {metaTime}</GameMeta>
         {isLive && <LiveBadge>LIVE</LiveBadge>}
         {isResolving && <ResolvingBadge>RESOLVING</ResolvingBadge>}
       </CardHeader>
@@ -206,7 +208,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
 
             {!bettingOpen ? (
               <BettingSuspendedBanner>
-                🔒 Betting suspended
+                  Betting closed
               </BettingSuspendedBanner>
             ) : (
               <>
@@ -219,43 +221,49 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                         odds={game.odds.moneyline.away}
                         selected={isSameBet(selected, 'moneyline', 'away')}
                         onSelect={() => handleSelect('moneyline', 'away', game.awayTeam, game.odds.moneyline.away)}
+                        disabled={lockedSides.away}
                       />
                       <OddsButton
                         label={game.homeTeam}
                         odds={game.odds.moneyline.home}
                         selected={isSameBet(selected, 'moneyline', 'home')}
                         onSelect={() => handleSelect('moneyline', 'home', game.homeTeam, game.odds.moneyline.home)}
+                        disabled={lockedSides.home}
                       />
                     </OddsRow>
                   </MarketGroup>
 
-                  <MarketGroup>
-                    <MarketLabel>Spread</MarketLabel>
-                    <OddsRow>
-                      <OddsButton
-                        label={formatSpreadLabel(game.awayTeam, game.odds.spread.away.line)}
-                        odds={game.odds.spread.away.juice}
-                        selected={isSameBet(selected, 'spread', 'away')}
-                        onSelect={() => handleSelect(
-                          'spread', 'away',
-                          formatSpreadLabel(game.awayTeam, game.odds.spread.away.line),
-                          game.odds.spread.away.juice,
-                          game.odds.spread.away.line,
-                        )}
-                      />
-                      <OddsButton
-                        label={formatSpreadLabel(game.homeTeam, game.odds.spread.home.line)}
-                        odds={game.odds.spread.home.juice}
-                        selected={isSameBet(selected, 'spread', 'home')}
-                        onSelect={() => handleSelect(
-                          'spread', 'home',
-                          formatSpreadLabel(game.homeTeam, game.odds.spread.home.line),
-                          game.odds.spread.home.juice,
-                          game.odds.spread.home.line,
-                        )}
-                      />
-                    </OddsRow>
-                  </MarketGroup>
+                  {game.sport.toLowerCase() !== 'fights' && (
+                    <MarketGroup>
+                      <MarketLabel>Spread</MarketLabel>
+                      <OddsRow>
+                        <OddsButton
+                          label={formatSpreadLabel(game.awayTeam, game.odds.spread.away.line)}
+                          odds={game.odds.spread.away.juice}
+                          selected={isSameBet(selected, 'spread', 'away')}
+                          onSelect={() => handleSelect(
+                            'spread', 'away',
+                            formatSpreadLabel(game.awayTeam, game.odds.spread.away.line),
+                            game.odds.spread.away.juice,
+                            game.odds.spread.away.line,
+                          )}
+                          disabled={lockedSides.away}
+                        />
+                        <OddsButton
+                          label={formatSpreadLabel(game.homeTeam, game.odds.spread.home.line)}
+                          odds={game.odds.spread.home.juice}
+                          selected={isSameBet(selected, 'spread', 'home')}
+                          onSelect={() => handleSelect(
+                            'spread', 'home',
+                            formatSpreadLabel(game.homeTeam, game.odds.spread.home.line),
+                            game.odds.spread.home.juice,
+                            game.odds.spread.home.line,
+                          )}
+                          disabled={lockedSides.home}
+                        />
+                      </OddsRow>
+                    </MarketGroup>
+                  )}
                 </MarketsRow>
 
                 {selected && (
@@ -266,7 +274,8 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                     label={selected.label}
                     odds={selected.odds}
                     line={selected.line}
-                    balance={balance}
+                    maxStake={game.betLimits?.[selected.side]?.maxStake}
+                    userName={userName}
                     onClose={() => setSelected(null)}
                     onSuccess={handleBetSuccess}
                   />
@@ -279,7 +288,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
         {isResolving && (
           <>
             <Divider />
-            <GameMeta style={{ fontSize: 11, color: '#f59e0b' }}>Betting closed — awaiting final score</GameMeta>
+            <GameMeta style={{ fontSize: 11, color: '#f59e0b' }}>Awaiting final score</GameMeta>
           </>
         )}
       </CardBody>

@@ -1,6 +1,6 @@
 import { Bet, BetType, BetSide } from '../types';
 
-const API_BASE = 'http://localhost:3002';
+const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
 export interface PlaceBetPayload {
   gameId: string;
@@ -10,11 +10,12 @@ export interface PlaceBetPayload {
   odds: number;
   line?: number;  // spread line at placement time (spread bets only)
   stake: number;
+  cashAmount: number;
+  userName: string;
 }
 
 export interface PlaceBetResponse {
   bet: Bet;
-  balance: number;
 }
 
 export const getBalance = async (): Promise<number> => {

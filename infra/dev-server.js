@@ -10,30 +10,138 @@
  * Port: 3002
  *
  * Routes:
- *   GET    /games          → return all games
- *   POST   /games          → add a game
- *   PUT    /games/:id      → update a game (partial merge); auto-settles pending
- *                            bets when game transitions to final with scores
- *   DELETE /games/:id      → remove a game
- *   GET    /bets           → return all bets
- *   POST   /bets           → place a bet (deducts from balance)
- *   DELETE /bets/:id       → remove a bet record
- *   GET    /balance        → return current balance
+ *   GET    /games                → return all games
+ *   POST   /games                → add a game
+ *   PUT    /games/:id            → update a game (partial merge); auto-settles pending
+ *                                  bets when game transitions to final with scores
+ *   DELETE /games/:id            → remove a game
+ *   GET    /bets                 → return all bets
+ *   POST   /bets                 → place a bet (deducts from balance)
+ *   DELETE /bets/:id             → remove a bet record
+ *   GET    /balance              → return current balance
+ *
+ *   POST   /auth/signup          → register a new user (status: pending)
+ *   POST   /auth/signin          → authenticate user + log attempt
+ *
+ *   POST   /admin/login          → admin authentication → returns session token
+ *   POST   /admin/logout         → invalidate session token
+ *   POST   /admin/verify-password  → verify admin password for destructive actions
+ *   GET    /admin/users          → list all users, passwords excluded (admin only)
+ *   PUT    /admin/users/:id      → update user status: verified|denied|pending (admin only)
+ *   GET    /admin/signin-log     → get sign-in attempt log (admin only)
+ *   POST   /games/:id/void-bets    → void all pending bets for a game (admin only)
  *
  * Replace with the real ASP.NET Core API when that is ready.
  */
 
 const http = require('http');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
+// ── In-memory game/bet state ────────────────────────────────────────────────────
 let games = [];
 let bets = [];
 let balance = 1000;
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
+// Active admin session tokens — map of token → createdAt timestamp
+const adminTokens = new Map();
+
+// Token TTL: 24 hours
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
+// ── Rate limiting ────────────────────────────────────────────────────────────────
+// Simple in-memory per-IP counter. Resets after the window expires.
+const rateLimitMap = new Map(); // ip → { count, windowStart }
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+const isRateLimited = (ip) => {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
 };
+
+const resetRateLimit = (ip) => rateLimitMap.delete(ip);
+
+// ── File paths for persistent auth data ────────────────────────────────────────
+// These files are .gitignored; the server creates them automatically on first run.
+const USERS_FILE = path.join(__dirname, 'users.json');
+const LOG_FILE   = path.join(__dirname, 'signin-log.json');
+
+// ── Admin credentials ───────────────────────────────────────────────────────────
+// Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables in production.
+// Defaults are for local dev only — never deploy with these.
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin123!';
+
+// ── File helpers ────────────────────────────────────────────────────────────────
+
+const readData = (file, defaultVal) => {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return defaultVal;
+  }
+};
+
+const writeData = (file, data) => {
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+};
+
+// ── Crypto helpers ──────────────────────────────────────────────────────────────
+
+const generateId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const generateToken = () => crypto.randomBytes(32).toString('hex');
+
+const hashPassword = (password) => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+};
+
+const verifyPassword = (password, stored) => {
+  const [salt, hash] = stored.split(':');
+  const verify = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
+  return hash === verify;
+};
+
+const validateAdminToken = (req) => {
+  const token = req.headers['x-admin-token'];
+  if (!token || !adminTokens.has(token)) return false;
+  // Reject tokens older than TOKEN_TTL_MS
+  if (Date.now() - adminTokens.get(token) > TOKEN_TTL_MS) {
+    adminTokens.delete(token);
+    return false;
+  }
+  return true;
+};
+
+// ── CORS ────────────────────────────────────────────────────────────────────────
+// In production set ALLOWED_ORIGINS to a comma-separated list of frontend URLs.
+// e.g. ALLOWED_ORIGINS=https://yourbettingsite.com,https://admin.yourbettingsite.com
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : ['http://localhost:3000', 'http://localhost:3001'];
+
+const getCorsHeaders = (origin) => {
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Token',
+    'Vary': 'Origin',
+  };
+};
+
+// ── Body parser ─────────────────────────────────────────────────────────────────
 
 const readBody = (req) =>
   new Promise((resolve, reject) => {
@@ -47,6 +155,8 @@ const readBody = (req) =>
       }
     });
   });
+
+// ── Bet helpers ─────────────────────────────────────────────────────────────────
 
 const calcPayout = (stake, odds) => {
   const profit = odds > 0
@@ -78,12 +188,11 @@ const settleBetOutcome = (bet, game) => {
         ? game.odds.spread.away.line
         : game.odds.spread.home.line;
     }
-    // +ve result means the bet side covered the spread
     const margin = bet.side === 'away'
       ? (awayScore + line) - homeScore
       : (homeScore + line) - awayScore;
 
-    if (margin === 0) return 'void'; // push
+    if (margin === 0) return 'void';
     return margin > 0 ? 'won' : 'lost';
   }
 
@@ -110,11 +219,12 @@ const settleGameBets = (game) => {
   }
 };
 
-const server = http.createServer(async (req, res) => {
-  // Apply CORS headers to every response
-  Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
+// ── Server ──────────────────────────────────────────────────────────────────────
 
-  // Handle preflight
+const server = http.createServer(async (req, res) => {
+  const origin = req.headers['origin'] || '';
+  Object.entries(getCorsHeaders(origin)).forEach(([k, v]) => res.setHeader(k, v));
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
@@ -125,17 +235,269 @@ const server = http.createServer(async (req, res) => {
 
   // Parse URL — strip query string, split into parts
   const pathname = req.url.split('?')[0];
-  const parts = pathname.split('/').filter(Boolean);
-  const resource = parts[0];
-  const id = parts[1] ?? null;
+  const parts    = pathname.split('/').filter(Boolean);
+  const resource = parts[0];        // 'auth' | 'admin' | 'games' | 'bets' | 'balance'
+  const id       = parts[1] ?? null; // sub-path or UUID
+  const subId    = parts[2] ?? null; // e.g. user UUID for /admin/users/:id
 
   try {
+
     // ── /balance ──────────────────────────────────────────────────────────────
 
-    // GET /balance
     if (req.method === 'GET' && resource === 'balance') {
       res.writeHead(200);
       res.end(JSON.stringify({ balance }));
+      return;
+    }
+
+    // ── /auth ─────────────────────────────────────────────────────────────────
+
+    // POST /auth/signup
+    if (req.method === 'POST' && resource === 'auth' && id === 'signup') {
+      const { firstName, lastName, password } = await readBody(req);
+
+      if (!firstName || !lastName || !password) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'First name, last name, and password are required' }));
+        return;
+      }
+
+      const data = readData(USERS_FILE, { users: [] });
+      const exists = data.users.find(
+        (u) =>
+          u.firstName.toLowerCase() === firstName.toLowerCase() &&
+          u.lastName.toLowerCase() === lastName.toLowerCase()
+      );
+
+      if (exists) {
+        res.writeHead(409);
+        res.end(JSON.stringify({ error: 'An account with this name already exists' }));
+        return;
+      }
+
+      const user = {
+        id: generateId(),
+        firstName,
+        lastName,
+        passwordHash: hashPassword(password),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      };
+
+      data.users.push(user);
+      writeData(USERS_FILE, data);
+      console.log(`[SIGNUP] ${firstName} ${lastName} → pending`);
+      res.writeHead(201);
+      res.end(JSON.stringify({ success: true, status: 'pending' }));
+      return;
+    }
+
+    // POST /auth/signin
+    if (req.method === 'POST' && resource === 'auth' && id === 'signin') {
+      const ip = req.socket.remoteAddress || 'unknown';
+      if (isRateLimited(ip)) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: 'Too many attempts. Try again in 10 minutes.' }));
+        return;
+      }
+      const { firstName, lastName, password } = await readBody(req);
+
+      if (!firstName || !lastName || !password) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Missing required fields' }));
+        return;
+      }
+
+      const data    = readData(USERS_FILE, { users: [] });
+      const logData = readData(LOG_FILE, { logs: [] });
+
+      const user = data.users.find(
+        (u) =>
+          u.firstName.toLowerCase() === firstName.toLowerCase() &&
+          u.lastName.toLowerCase() === lastName.toLowerCase()
+      );
+
+      const logEntry = {
+        id: generateId(),
+        name: `${firstName} ${lastName}`,
+        timestamp: new Date().toISOString(),
+        success: false,
+        reason: '',
+      };
+
+      // Invalid credentials
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        logEntry.reason = 'Invalid credentials';
+        logData.logs.unshift(logEntry);
+        writeData(LOG_FILE, logData);
+        console.log(`[SIGNIN] ${firstName} ${lastName} → invalid credentials`);
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Invalid name or password' }));
+        return;
+      }
+
+      // Valid credentials — check verification status
+      logEntry.userId = user.id;
+      logEntry.name   = `${user.firstName} ${user.lastName}`;
+
+      if (user.status === 'verified') {
+        resetRateLimit(ip); // clear on success
+        logEntry.success = true;
+        logEntry.reason  = 'Verified';
+        logData.logs.unshift(logEntry);
+        writeData(LOG_FILE, logData);
+        console.log(`[SIGNIN] ${user.firstName} ${user.lastName} → allowed`);
+        res.writeHead(200);
+        res.end(JSON.stringify({
+          success: true,
+          user: { id: user.id, firstName: user.firstName, lastName: user.lastName },
+        }));
+      } else {
+        logEntry.success = false;
+        logEntry.reason  = user.status === 'denied' ? 'Account denied' : 'Pending verification';
+        logData.logs.unshift(logEntry);
+        writeData(LOG_FILE, logData);
+        console.log(`[SIGNIN] ${user.firstName} ${user.lastName} → blocked (${user.status})`);
+        res.writeHead(403);
+        res.end(JSON.stringify({
+          error: user.status === 'denied'
+            ? 'Your account has been denied. Please contact admin.'
+            : 'Your account is pending verification. Please wait for admin approval.',
+          status: user.status,
+        }));
+      }
+      return;
+    }
+
+    // ── /admin ────────────────────────────────────────────────────────────────
+
+    // POST /admin/login
+    if (req.method === 'POST' && resource === 'admin' && id === 'login') {
+      const ip = req.socket.remoteAddress || 'unknown';
+      if (isRateLimited(ip)) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: 'Too many attempts. Try again in 10 minutes.' }));
+        return;
+      }
+      const { username, password } = await readBody(req);
+      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        const token = generateToken();
+        adminTokens.set(token, Date.now());
+        resetRateLimit(ip); // clear on success
+        console.log('[ADMIN] Login successful');
+        res.writeHead(200);
+        res.end(JSON.stringify({ token }));
+      } else {
+        console.log('[ADMIN] Failed login attempt');
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Invalid admin credentials' }));
+      }
+      return;
+    }
+
+    // POST /admin/logout
+    if (req.method === 'POST' && resource === 'admin' && id === 'logout') {
+      const token = req.headers['x-admin-token'];
+      if (token) adminTokens.delete(token);
+      res.writeHead(200);
+      res.end(JSON.stringify({ success: true }));
+      return;
+    }
+
+    // POST /admin/verify-password
+    if (req.method === 'POST' && resource === 'admin' && id === 'verify-password') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const { password } = await readBody(req);
+      if (password === ADMIN_PASSWORD) {
+        res.writeHead(200);
+        res.end(JSON.stringify({ ok: true }));
+      } else {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Incorrect password' }));
+      }
+      return;
+    }
+
+    // GET /admin/users
+    if (req.method === 'GET' && resource === 'admin' && id === 'users' && !subId) {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const data      = readData(USERS_FILE, { users: [] });
+      const safeUsers = data.users.map(({ passwordHash, ...u }) => u);
+      res.writeHead(200);
+      res.end(JSON.stringify(safeUsers));
+      return;
+    }
+
+    // PUT /admin/users/:userId
+    if (req.method === 'PUT' && resource === 'admin' && id === 'users' && subId) {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const { status } = await readBody(req);
+      if (!['verified', 'denied', 'pending'].includes(status)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid status. Must be: verified, denied, or pending' }));
+        return;
+      }
+      const data = readData(USERS_FILE, { users: [] });
+      const idx  = data.users.findIndex((u) => u.id === subId);
+      if (idx === -1) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'User not found' }));
+        return;
+      }
+      data.users[idx].status = status;
+      writeData(USERS_FILE, data);
+      const { passwordHash, ...safeUser } = data.users[idx];
+      console.log(`[ADMIN] ${safeUser.firstName} ${safeUser.lastName} → ${status}`);
+      res.writeHead(200);
+      res.end(JSON.stringify(safeUser));
+      return;
+    }
+
+    // DELETE /admin/users/:userId — permanently remove a denied user account
+    if (req.method === 'DELETE' && resource === 'admin' && id === 'users' && subId) {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const data = readData(USERS_FILE, { users: [] });
+      const before = data.users.length;
+      const target = data.users.find((u) => u.id === subId);
+      data.users = data.users.filter((u) => u.id !== subId);
+      if (data.users.length === before) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'User not found' }));
+        return;
+      }
+      writeData(USERS_FILE, data);
+      console.log(`[ADMIN] Removed user: ${target?.firstName} ${target?.lastName}`);
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    // GET /admin/signin-log
+    if (req.method === 'GET' && resource === 'admin' && id === 'signin-log') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const data = readData(LOG_FILE, { logs: [] });
+      res.writeHead(200);
+      res.end(JSON.stringify(data.logs));
       return;
     }
 
@@ -149,8 +511,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     // POST /bets — place a bet
-    if (req.method === 'POST' && resource === 'bets') {
-      const { gameId, betType, side, label, odds, stake, line } = await readBody(req);
+    if (req.method === 'POST' && resource === 'bets' && !id) {
+      const { gameId, betType, side, label, odds, stake, line, cashAmount, userName } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -162,33 +524,78 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'Stake must be a positive number' }));
         return;
       }
-      if (stake > balance) {
+
+      // Game-level guards
+      const betGame = games.find((g) => g.id === gameId);
+      if (!betGame) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Game not found' }));
+        return;
+      }
+      if (betGame.bettingEnabled === false) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Betting is currently closed for this game' }));
+        return;
+      }
+      if (betGame.lockedSides?.[side]) {
+        res.writeHead(403);
+        res.end(JSON.stringify({ error: 'Betting on this side is currently locked' }));
+        return;
+      }
+      const sideLimit = betGame.betLimits?.[side];
+      if (sideLimit && stake > sideLimit.maxStake) {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: 'Insufficient balance' }));
+        res.end(JSON.stringify({ error: `Maximum stake for these odds is $${sideLimit.maxStake.toFixed(2)}` }));
         return;
       }
 
       const payout = calcPayout(stake, odds);
       const bet = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: generateId(),
         gameId,
         betType,
         side,
         label,
         odds,
-        // Store spread line so settlement is accurate even if admin edits lines later
         ...(line != null ? { line } : {}),
         stake,
+        cashAmount,
         payout,
-        status: 'pending',
+        userName: userName || 'Unknown',
+        status: 'awaiting_payment',
         placedAt: new Date().toISOString(),
       };
 
       bets.unshift(bet);
-      balance = parseFloat((balance - stake).toFixed(2));
-      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  balance=$${balance}`);
+      // No balance deduction — payment confirmed in cash by admin
+      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  cash=$${cashAmount}  status=awaiting_payment`);
       res.writeHead(201);
-      res.end(JSON.stringify({ bet, balance }));
+      res.end(JSON.stringify({ bet }));
+      return;
+    }
+
+    // POST /bets/:id/confirm-payment — admin confirms cash received, activates bet
+    if (req.method === 'POST' && resource === 'bets' && id && subId === 'confirm-payment') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const betIdx = bets.findIndex((b) => b.id === id);
+      if (betIdx === -1) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Bet not found' }));
+        return;
+      }
+      if (bets[betIdx].status !== 'awaiting_payment') {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Bet is not awaiting payment' }));
+        return;
+      }
+      bets[betIdx] = { ...bets[betIdx], status: 'pending' };
+      console.log(`[CONFIRM] Bet ${id} → pending (cash confirmed)`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ bet: bets[betIdx] }));
       return;
     }
 
@@ -219,6 +626,7 @@ const server = http.createServer(async (req, res) => {
     // POST /games
     if (req.method === 'POST' && resource === 'games') {
       const game = await readBody(req);
+      game.bettingEnabled = true; // auto-enable betting when a game is created
       games.unshift(game);
       console.log(`[ADD]    ${game.awayTeam} @ ${game.homeTeam} (${game.league})`);
       res.writeHead(201);
@@ -229,6 +637,11 @@ const server = http.createServer(async (req, res) => {
     // PUT /games/:id
     if (req.method === 'PUT' && resource === 'games' && id) {
       const updates = await readBody(req);
+      // auto-disable betting when a game goes live (admin can re-enable manually)
+      const existing = games.find((g) => g.id === id);
+      if (updates.status === 'live' && existing && existing.status !== 'live') {
+        updates.bettingEnabled = false;
+      }
       games = games.map((g) => (g.id === id ? { ...g, ...updates } : g));
       const updated = games.find((g) => g.id === id);
       if (!updated) {
@@ -238,7 +651,6 @@ const server = http.createServer(async (req, res) => {
       }
       console.log(`[UPDATE] id=${id}`, Object.keys(updates).join(', '));
 
-      // Auto-settle pending bets when game is final with both scores present
       if (
         updated.status === 'final' &&
         updated.homeScore !== undefined &&
@@ -267,6 +679,40 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // POST /games/:id/void-bets
+    if (req.method === 'POST' && resource === 'games' && id && subId === 'void-bets') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const voidGame = games.find((g) => g.id === id);
+      if (!voidGame) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Game not found' }));
+        return;
+      }
+      let voidedCount = 0;
+      bets = bets.map((bet) => {
+        if (bet.gameId !== id) return bet;
+        if (bet.status === 'awaiting_payment') {
+          voidedCount++;
+          console.log(`[VOID] ${bet.label} → VOID (payment not confirmed)`);
+          return { ...bet, status: 'void' };
+        }
+        if (bet.status === 'pending') {
+          voidedCount++;
+          console.log(`[VOID] ${bet.label} → VOID`);
+          return { ...bet, status: 'void' };
+        }
+        return bet;
+      });
+      console.log(`[VOID] ${voidedCount} bet(s) voided for game ${id}`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ voided: voidedCount }));
+      return;
+    }
+
     res.writeHead(404);
     res.end(JSON.stringify({ error: 'Not found' }));
   } catch (err) {
@@ -279,5 +725,11 @@ const server = http.createServer(async (req, res) => {
 server.listen(3002, () => {
   console.log('');
   console.log('  SBP Dev API  →  http://localhost:3002');
+  console.log('');
+  console.log('  Admin user   →  ADMIN_USERNAME env var (default: admin)');
+  console.log('  Admin pass   →  ADMIN_PASSWORD env var (required in production)');
+  console.log('  CORS origins →  ALLOWED_ORIGINS env var (default: localhost:3000,3001)');
+  console.log('  User data    →  infra/users.json  (created on first sign-up)');
+  console.log('  Sign-in log  →  infra/signin-log.json');
   console.log('');
 });
