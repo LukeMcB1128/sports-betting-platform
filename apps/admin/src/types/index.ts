@@ -31,6 +31,7 @@ export interface Bet {
   cashAmount: number; // cash declared by user at submission
   status: BetStatus;
   placedAt: string; // ISO string
+  userID: string; // user id or name
 }
 
 export interface SpreadSide {
