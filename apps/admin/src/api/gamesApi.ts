@@ -1,4 +1,4 @@
-import { Game, GameOdds, GameStatus } from '../types';
+import { Game, GameOdds, GameStatus, BetLimits, LockedSides } from '../types';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
@@ -75,4 +75,33 @@ export const updateBettingEnabled = async (id: string, bettingEnabled: boolean):
 export const removeGame = async (id: string): Promise<void> => {
   const res = await fetch(`${API_BASE}/games/${id}`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Failed to remove game');
+};
+
+export const saveBetLimits = async (id: string, betLimits: BetLimits): Promise<Game> => {
+  const res = await fetch(`${API_BASE}/games/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ betLimits }),
+  });
+  if (!res.ok) throw new Error('Failed to save bet limits');
+  return res.json();
+};
+
+export const updateLockedSides = async (id: string, lockedSides: LockedSides): Promise<Game> => {
+  const res = await fetch(`${API_BASE}/games/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ lockedSides }),
+  });
+  if (!res.ok) throw new Error('Failed to update locked sides');
+  return res.json();
+};
+
+export const voidAllBets = async (id: string, adminToken: string): Promise<{ voided: number }> => {
+  const res = await fetch(`${API_BASE}/games/${id}/void-bets`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Token': adminToken },
+  });
+  if (!res.ok) throw new Error('Failed to void bets');
+  return res.json();
 };

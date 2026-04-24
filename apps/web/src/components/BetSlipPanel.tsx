@@ -12,6 +12,7 @@ interface BetSlipPanelProps {
   odds: number;
   line?: number; // spread line at time of selection (spread bets only)
   balance: number;
+  maxStake?: number;
   onClose: () => void;
   onSuccess: (newBalance: number) => void;
 }
@@ -189,6 +190,12 @@ const SuccessMsg = styled.div`
   font-weight: 500;
 `;
 
+const MaxBetHint = styled.div`
+  font-size: 11px;
+  color: ${colors.textMuted};
+  margin-bottom: 4px;
+`;
+
 const calcPayout = (stake: number, odds: number): number => {
   if (isNaN(stake) || stake <= 0) return 0;
   const profit = odds > 0
@@ -202,7 +209,7 @@ const formatMoney = (n: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
-  gameId, betType, side, label, odds, line, balance, onClose, onSuccess,
+  gameId, betType, side, label, odds, line, balance, maxStake, onClose, onSuccess,
 }) => {
   const [stakeStr, setStakeStr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -223,6 +230,7 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
     if (!validStake) { setError('Enter a valid stake amount.'); return; }
     if (stake > balance) { setError(`Insufficient balance ($${formatMoney(balance)} available).`); return; }
     if (stake < 0.01) { setError('Minimum stake is $0.01.'); return; }
+    if (maxStake && stake > maxStake) { setError(`Max bet for these odds is $${maxStake.toFixed(2)}`); return; }
 
     setLoading(true);
     setError(null);
@@ -249,6 +257,10 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
         </SelectedLabel>
         <CloseButton onClick={onClose} title="Remove selection">×</CloseButton>
       </PanelHeader>
+
+      {maxStake !== undefined && (
+        <MaxBetHint>Max bet: ${maxStake.toFixed(2)}</MaxBetHint>
+      )}
 
       <InputRow>
         <StakeWrapper>

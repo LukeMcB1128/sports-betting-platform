@@ -1,5 +1,20 @@
 export type GameStatus = 'upcoming' | 'live' | 'resolving' | 'final';
 
+export interface BetSideLimit {
+  maxStake: number;
+  maxPayout: number;
+}
+
+export interface BetLimits {
+  home: BetSideLimit;
+  away: BetSideLimit;
+}
+
+export interface LockedSides {
+  home: boolean;
+  away: boolean;
+}
+
 export type BetType = 'moneyline' | 'spread';
 
 export type BetSide = 'home' | 'away';
@@ -53,4 +68,6 @@ export interface Game {
   awayScore?: number;
   odds: GameOdds;
   bettingEnabled?: boolean; // undefined treated as true for backward compat
+  betLimits?: BetLimits;
+  lockedSides?: LockedSides;
 }

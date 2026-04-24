@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Game, GameStatus, GameOdds } from '../types';
+import { Game, GameStatus, GameOdds, BetLimits, LockedSides } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import BetsPanel from '../components/BetsPanel';
 import UsersPanel from '../components/UsersPanel';
 import AddGameModal from '../components/AddGameModal';
-import SetLinesModal from '../components/SetLinesModal';
+import AdvancedGameModal from '../components/AdvancedGameModal';
 import EnterScoreModal from '../components/EnterScoreModal';
 import Button from '../components/Button';
 import {
@@ -18,6 +18,9 @@ import {
   updateGameScore,
   updateBettingEnabled,
   removeGame,
+  saveBetLimits,
+  updateLockedSides,
+  voidAllBets,
 } from '../api/gamesApi';
 
 type ActiveTab = 'games' | 'bets' | 'users';
@@ -122,8 +125,11 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddGame, setShowAddGame] = useState(false);
-  const [editLinesGame, setEditLinesGame] = useState<Game | null>(null);
+  const [advancedGameId, setAdvancedGameId] = useState<string | null>(null);
   const [enterScoreGame, setEnterScoreGame] = useState<Game | null>(null);
+
+  // Derive advancedGame live from games array so the modal always has fresh state
+  const advancedGame = advancedGameId ? games.find((g) => g.id === advancedGameId) ?? null : null;
 
   useEffect(() => {
     fetchGames()
@@ -176,6 +182,21 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
     setGames((prev) =>
       prev.map((g) => (g.id === game.id ? { ...g, bettingEnabled } : g))
     );
+  };
+
+  const handleSaveBetLimits = async (gameId: string, betLimits: BetLimits) => {
+    const updated = await saveBetLimits(gameId, betLimits);
+    setGames((prev) => prev.map((g) => (g.id === gameId ? updated : g)));
+  };
+
+  const handleUpdateLockedSides = async (gameId: string, lockedSides: LockedSides) => {
+    const updated = await updateLockedSides(gameId, lockedSides);
+    setGames((prev) => prev.map((g) => (g.id === gameId ? updated : g)));
+  };
+
+  const handleVoidAllBets = async (gameId: string) => {
+    await voidAllBets(gameId, adminToken);
+    // bets panel will refresh on its own poll; no game state change needed
   };
 
   const upcomingCount  = games.filter((g) => g.status === 'upcoming').length;
@@ -242,13 +263,12 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
 
           <GamesTable
             games={games}
-            onSetLines={setEditLinesGame}
             onUpdateStatus={handleUpdateStatus}
             onUpdateOdds={handleSaveLines}
             onTogglePublish={handleTogglePublish}
-            onRemove={handleRemove}
             onEnterScore={setEnterScoreGame}
             onEnableDisableBetting={handleEnableDisableBetting}
+            onAdvanced={(game) => setAdvancedGameId(game.id)}
           />
         </>
       )}
@@ -267,11 +287,19 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         />
       )}
 
-      {editLinesGame && (
-        <SetLinesModal
-          game={editLinesGame}
-          onClose={() => setEditLinesGame(null)}
-          onSave={handleSaveLines}
+      {advancedGame && (
+        <AdvancedGameModal
+          game={advancedGame}
+          adminToken={adminToken}
+          onClose={() => setAdvancedGameId(null)}
+          onSaveLines={handleSaveLines}
+          onSaveBetLimits={handleSaveBetLimits}
+          onUpdateLockedSides={handleUpdateLockedSides}
+          onVoidAllBets={handleVoidAllBets}
+          onRemove={(gameId) => {
+            handleRemove(gameId);
+            setAdvancedGameId(null);
+          }}
         />
       )}
 
