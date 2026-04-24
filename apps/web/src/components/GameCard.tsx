@@ -7,8 +7,6 @@ import BetSlipPanel from './BetSlipPanel';
 
 interface GameCardProps {
   game: Game;
-  balance: number;
-  onBalanceChange: (newBalance: number) => void;
 }
 
 interface SelectedBet {
@@ -148,7 +146,7 @@ const formatSpreadLabel = (team: string, line: number): string => {
 const isSameBet = (a: SelectedBet | null, betType: BetType, side: BetSide) =>
   a !== null && a.betType === betType && a.side === side;
 
-const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) => {
+const GameCard: React.FC<GameCardProps> = ({ game }) => {
   const [selected, setSelected] = useState<SelectedBet | null>(null);
 
   const isLive = game.status === 'live';
@@ -181,9 +179,8 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
     if (!bettingOpen && selected) setSelected(null);
   }, [bettingOpen, selected]);
 
-  const handleBetSuccess = (newBalance: number) => {
+  const handleBetSuccess = () => {
     setSelected(null);
-    onBalanceChange(newBalance);
   };
 
   return (
@@ -276,7 +273,6 @@ const GameCard: React.FC<GameCardProps> = ({ game, balance, onBalanceChange }) =
                     label={selected.label}
                     odds={selected.odds}
                     line={selected.line}
-                    balance={balance}
                     maxStake={game.betLimits?.[selected.side]?.maxStake}
                     onClose={() => setSelected(null)}
                     onSuccess={handleBetSuccess}

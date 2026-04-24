@@ -274,7 +274,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
       )}
 
       {/* ── Bets tab ──────────────────────────────────────────────────────── */}
-      {activeTab === 'bets' && <BetsPanel />}
+      {activeTab === 'bets' && <BetsPanel adminToken={adminToken} />}
 
       {/* ── Users tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'users' && <UsersPanel adminToken={adminToken} />}
