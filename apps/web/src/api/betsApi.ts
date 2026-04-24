@@ -10,11 +10,11 @@ export interface PlaceBetPayload {
   odds: number;
   line?: number;  // spread line at placement time (spread bets only)
   stake: number;
+  cashAmount: number;
 }
 
 export interface PlaceBetResponse {
   bet: Bet;
-  balance: number;
 }
 
 export const getBalance = async (): Promise<number> => {

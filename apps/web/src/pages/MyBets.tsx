@@ -25,6 +25,7 @@ const calcProfit = (bet: Bet) => parseFloat((bet.payout - bet.stake).toFixed(2))
 // ─── Status colours ──────────────────────────────────────────────────────────
 
 const STATUS_COLOR: Record<BetStatus, string> = {
+  awaiting_payment: '#3b82f6',
   pending: '#f59e0b',
   won:     colors.positive,
   lost:    colors.negative,
@@ -32,6 +33,7 @@ const STATUS_COLOR: Record<BetStatus, string> = {
 };
 
 const STATUS_BG: Record<BetStatus, string> = {
+  awaiting_payment: 'rgba(59,130,246,0.12)',
   pending: 'rgba(245,158,11,0.12)',
   won:     'rgba(34,197,94,0.12)',
   lost:    'rgba(239,68,68,0.12)',
@@ -39,6 +41,7 @@ const STATUS_BG: Record<BetStatus, string> = {
 };
 
 const CARD_ACCENT: Record<BetStatus, string> = {
+  awaiting_payment: '#3b82f6',
   pending: 'transparent',
   won:     colors.positive,
   lost:    colors.negative,
@@ -234,6 +237,28 @@ const PlacedAt = styled.span`
   margin-left: auto;
 `;
 
+// ─── Section header ───────────────────────────────────────────────────────────
+
+const SectionHeading = styled.h2`
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: ${colors.textMuted};
+  margin-bottom: 10px;
+  margin-top: 28px;
+`;
+
+const AwaitingBanner = styled.div`
+  background-color: rgba(59,130,246,0.08);
+  border: 1px solid rgba(59,130,246,0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #93c5fd;
+  margin-bottom: 12px;
+`;
+
 // ─── Empty ───────────────────────────────────────────────────────────────────
 
 const EmptyState = styled.div`
@@ -303,6 +328,25 @@ const AmountRow: React.FC<AmountRowProps> = ({ bet }) => {
     );
   }
 
+  if (bet.status === 'awaiting_payment') {
+    return (
+      <>
+        <AmountGroup>
+          <AmountLabel>Bet Amount</AmountLabel>
+          <AmountValue>${formatMoney(bet.stake)}</AmountValue>
+        </AmountGroup>
+        <AmountGroup>
+          <AmountLabel>Cash Declared</AmountLabel>
+          <AmountValue>${formatMoney(bet.cashAmount)}</AmountValue>
+        </AmountGroup>
+        <AmountGroup>
+          <AmountLabel>To Win</AmountLabel>
+          <AmountValue>${formatMoney(profit)}</AmountValue>
+        </AmountGroup>
+      </>
+    );
+  }
+
   // pending
   return (
     <>
@@ -324,6 +368,48 @@ const AmountRow: React.FC<AmountRowProps> = ({ bet }) => {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+const BetCardDisplay: React.FC<{ bet: Bet; gameMap: Record<string, Game> }> = ({ bet, gameMap }) => {
+  const game = gameMap[bet.gameId] as Game | undefined;
+  const isFinal = game?.status === 'final' || game?.status === 'resolving';
+
+  return (
+    <BetCard status={bet.status}>
+      <BetCardTop>
+        <BetLabel>
+          <StatusBadge status={bet.status}>
+            {bet.status === 'awaiting_payment' ? 'Awaiting Payment' : bet.status}
+          </StatusBadge>
+          <MarketTag>{bet.betType}</MarketTag>
+          <BetName>{bet.label}</BetName>
+          <OddsPill positive={bet.odds > 0}>{formatOdds(bet.odds)}</OddsPill>
+        </BetLabel>
+      </BetCardTop>
+
+      {game && (
+        <BetCardMid>
+          {isFinal && game.awayScore !== undefined ? (
+            <>
+              <ScoreSpan>{game.awayTeam} {game.awayScore}</ScoreSpan>
+              <Dot>@</Dot>
+              <ScoreSpan>{game.homeTeam} {game.homeScore}</ScoreSpan>
+            </>
+          ) : (
+            <GameInfo>{game.awayTeam} @ {game.homeTeam}</GameInfo>
+          )}
+          <Dot>·</Dot>
+          <GameInfo>{game.league}</GameInfo>
+          {isFinal && <GameInfo>· Final</GameInfo>}
+        </BetCardMid>
+      )}
+
+      <BetCardBottom>
+        <AmountRow bet={bet} />
+        <PlacedAt>Placed {formatDate(bet.placedAt)}</PlacedAt>
+      </BetCardBottom>
+    </BetCard>
+  );
+};
+
 const MyBets: React.FC = () => {
   const bets  = useBets();
   const games = useGames([]);
@@ -333,23 +419,19 @@ const MyBets: React.FC = () => {
     [games],
   );
 
-  // Stats
-  const totalStaked  = bets.reduce((s, b) => s + b.stake, 0);
-  const pendingBets  = bets.filter((b) => b.status === 'pending');
+  const awaitingBets = bets.filter((b) => b.status === 'awaiting_payment');
+  const activeBets   = bets.filter((b) => b.status === 'pending');
   const wonBets      = bets.filter((b) => b.status === 'won');
   const lostBets     = bets.filter((b) => b.status === 'lost');
+  const settledBets  = bets.filter((b) => b.status === 'won' || b.status === 'lost' || b.status === 'void');
+
   const totalWon     = wonBets.reduce((s, b) => s + b.payout, 0);
   const totalLost    = lostBets.reduce((s, b) => s + b.stake, 0);
   const netPL        = parseFloat((totalWon - totalLost).toFixed(2));
   const netPLColor   = netPL > 0 ? colors.positive : netPL < 0 ? colors.negative : colors.text;
 
-  // Show settled bets (won/lost/void) first, then pending — so resolved ones are prominent
-  const sortedBets = [...bets].sort((a, b) => {
-    const order: Record<BetStatus, number> = { won: 0, lost: 1, void: 2, pending: 3 };
-    if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
-    // Within same status, most recent first
-    return new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime();
-  });
+  const byRecent = (a: Bet, b: Bet) =>
+    new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime();
 
   return (
     <Page>
@@ -358,23 +440,19 @@ const MyBets: React.FC = () => {
       {bets.length > 0 && (
         <StatsRow>
           <StatCard>
-            <StatValue>{bets.length}</StatValue>
-            <StatLabel>Total Bets</StatLabel>
+            <StatValue color="#3b82f6">{awaitingBets.length}</StatValue>
+            <StatLabel>Awaiting Payment</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue>${formatMoney(totalStaked)}</StatValue>
-            <StatLabel>Total Staked</StatLabel>
+            <StatValue color="#f59e0b">{activeBets.length}</StatValue>
+            <StatLabel>Active</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue color="#f59e0b">{pendingBets.length}</StatValue>
-            <StatLabel>Pending</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatValue color="#FF0000">{lostBets.length}</StatValue>
+            <StatValue color={colors.negative}>{lostBets.length}</StatValue>
             <StatLabel>Lost</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue color="#00ff00">{wonBets.length}</StatValue>
+            <StatValue color={colors.positive}>{wonBets.length}</StatValue>
             <StatLabel>Won</StatLabel>
           </StatCard>
           <StatCard>
@@ -392,50 +470,43 @@ const MyBets: React.FC = () => {
           <p>Head to <a href="/" style={{ color: colors.accent }}>Games</a> to place your first bet.</p>
         </EmptyState>
       ) : (
-        <BetList>
-          {sortedBets.map((bet) => {
-            const game = gameMap[bet.gameId] as Game | undefined;
-            const isFinal = game?.status === 'final' || game?.status === 'resolving';
+        <>
+          {awaitingBets.length > 0 && (
+            <>
+              <SectionHeading>Awaiting Payment</SectionHeading>
+              <AwaitingBanner>
+                Hand over your cash — once confirmed by admin your bet will become active.
+              </AwaitingBanner>
+              <BetList>
+                {[...awaitingBets].sort(byRecent).map((bet) => (
+                  <BetCardDisplay key={bet.id} bet={bet} gameMap={gameMap} />
+                ))}
+              </BetList>
+            </>
+          )}
 
-            return (
-              <BetCard key={bet.id} status={bet.status}>
-                {/* Top row: label + status */}
-                <BetCardTop>
-                  <BetLabel>
-                    <StatusBadge status={bet.status}>{bet.status}</StatusBadge>
-                    <MarketTag>{bet.betType}</MarketTag>
-                    <BetName>{bet.label}</BetName>
-                    <OddsPill positive={bet.odds > 0}>{formatOdds(bet.odds)}</OddsPill>
-                  </BetLabel>
-                </BetCardTop>
+          {activeBets.length > 0 && (
+            <>
+              <SectionHeading>Active Bets</SectionHeading>
+              <BetList>
+                {[...activeBets].sort(byRecent).map((bet) => (
+                  <BetCardDisplay key={bet.id} bet={bet} gameMap={gameMap} />
+                ))}
+              </BetList>
+            </>
+          )}
 
-                {/* Game info + final score if available */}
-                {game && (
-                  <BetCardMid>
-                    {isFinal && game.awayScore !== undefined ? (
-                      <>
-                        <ScoreSpan>{game.awayTeam} {game.awayScore}</ScoreSpan>
-                        <Dot>@</Dot>
-                        <ScoreSpan>{game.homeTeam} {game.homeScore}</ScoreSpan>
-                      </>
-                    ) : (
-                      <GameInfo>{game.awayTeam} @ {game.homeTeam}</GameInfo>
-                    )}
-                    <Dot>·</Dot>
-                    <GameInfo>{game.league}</GameInfo>
-                    {isFinal && <GameInfo>· Final</GameInfo>}
-                  </BetCardMid>
-                )}
-
-                {/* Amounts */}
-                <BetCardBottom>
-                  <AmountRow bet={bet} />
-                  <PlacedAt>Placed {formatDate(bet.placedAt)}</PlacedAt>
-                </BetCardBottom>
-              </BetCard>
-            );
-          })}
-        </BetList>
+          {settledBets.length > 0 && (
+            <>
+              <SectionHeading>Settled</SectionHeading>
+              <BetList>
+                {[...settledBets].sort(byRecent).map((bet) => (
+                  <BetCardDisplay key={bet.id} bet={bet} gameMap={gameMap} />
+                ))}
+              </BetList>
+            </>
+          )}
+        </>
       )}
     </Page>
   );

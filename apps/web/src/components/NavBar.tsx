@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { colors } from '../styles/GlobalStyles';
 
 interface NavBarProps {
-  balance: number | null;
   userName: string;
   onSignOut: () => void;
 }
@@ -83,35 +82,6 @@ const RightSection = styled.div`
   }
 `;
 
-const BalanceChip = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background-color: ${colors.surfaceHover};
-  border: 1px solid ${colors.border};
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 14px;
-  font-weight: 600;
-
-  @media (max-width: 768px) {
-    padding: 5px 10px;
-    font-size: 13px;
-    gap: 5px;
-  }
-`;
-
-const BalanceLabel = styled.span`
-  color: ${colors.textMuted};
-  font-weight: 400;
-  font-size: 12px;
-
-  /* Hide the "Balance" label on mobile — the number speaks for itself */
-  @media (max-width: 768px) {
-    display: none;
-  }
-`;
-
 const UserName = styled.span`
   font-size: 13px;
   font-weight: 600;
@@ -146,10 +116,7 @@ const SignOutButton = styled.button`
   }
 `;
 
-const formatBalance = (n: number): string =>
-  n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-const NavBar: React.FC<NavBarProps> = ({ balance, userName, onSignOut }) => {
+const NavBar: React.FC<NavBarProps> = ({ userName, onSignOut }) => {
   const isMyBets = window.location.pathname === '/bets';
 
   return (
@@ -160,10 +127,6 @@ const NavBar: React.FC<NavBarProps> = ({ balance, userName, onSignOut }) => {
         <NavLink href="/bets" active={isMyBets}>My Bets</NavLink>
       </NavLinks>
       <RightSection>
-        <BalanceChip>
-          <BalanceLabel>Balance</BalanceLabel>
-          {balance !== null ? `$${formatBalance(balance)}` : '—'}
-        </BalanceChip>
         <UserName>{userName}</UserName>
         <SignOutButton onClick={onSignOut}>Sign Out</SignOutButton>
       </RightSection>

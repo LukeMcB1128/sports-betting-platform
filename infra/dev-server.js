@@ -44,8 +44,30 @@ let games = [];
 let bets = [];
 let balance = 1000;
 
-// Active admin session tokens — cleared on server restart
-const adminTokens = new Set();
+// Active admin session tokens — map of token → createdAt timestamp
+const adminTokens = new Map();
+
+// Token TTL: 24 hours
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+
+// ── Rate limiting ────────────────────────────────────────────────────────────────
+// Simple in-memory per-IP counter. Resets after the window expires.
+const rateLimitMap = new Map(); // ip → { count, windowStart }
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
+const isRateLimited = (ip) => {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count++;
+  return entry.count > RATE_LIMIT_MAX;
+};
+
+const resetRateLimit = (ip) => rateLimitMap.delete(ip);
 
 // ── File paths for persistent auth data ────────────────────────────────────────
 // These files are .gitignored; the server creates them automatically on first run.
@@ -53,9 +75,10 @@ const USERS_FILE = path.join(__dirname, 'users.json');
 const LOG_FILE   = path.join(__dirname, 'signin-log.json');
 
 // ── Admin credentials ───────────────────────────────────────────────────────────
-// Change these before deploying. Never committed to source control.
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'Admin123!';
+// Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables in production.
+// Defaults are for local dev only — never deploy with these.
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'Admin123!';
 
 // ── File helpers ────────────────────────────────────────────────────────────────
 
@@ -92,15 +115,30 @@ const verifyPassword = (password, stored) => {
 
 const validateAdminToken = (req) => {
   const token = req.headers['x-admin-token'];
-  return token && adminTokens.has(token);
+  if (!token || !adminTokens.has(token)) return false;
+  // Reject tokens older than TOKEN_TTL_MS
+  if (Date.now() - adminTokens.get(token) > TOKEN_TTL_MS) {
+    adminTokens.delete(token);
+    return false;
+  }
+  return true;
 };
 
 // ── CORS ────────────────────────────────────────────────────────────────────────
+// In production set ALLOWED_ORIGINS to a comma-separated list of frontend URLs.
+// e.g. ALLOWED_ORIGINS=https://yourbettingsite.com,https://admin.yourbettingsite.com
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+  : ['http://localhost:3000', 'http://localhost:3001'];
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Token',
+const getCorsHeaders = (origin) => {
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Token',
+    'Vary': 'Origin',
+  };
 };
 
 // ── Body parser ─────────────────────────────────────────────────────────────────
@@ -184,7 +222,8 @@ const settleGameBets = (game) => {
 // ── Server ──────────────────────────────────────────────────────────────────────
 
 const server = http.createServer(async (req, res) => {
-  Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
+  const origin = req.headers['origin'] || '';
+  Object.entries(getCorsHeaders(origin)).forEach(([k, v]) => res.setHeader(k, v));
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -255,6 +294,12 @@ const server = http.createServer(async (req, res) => {
 
     // POST /auth/signin
     if (req.method === 'POST' && resource === 'auth' && id === 'signin') {
+      const ip = req.socket.remoteAddress || 'unknown';
+      if (isRateLimited(ip)) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: 'Too many attempts. Try again in 10 minutes.' }));
+        return;
+      }
       const { firstName, lastName, password } = await readBody(req);
 
       if (!firstName || !lastName || !password) {
@@ -296,6 +341,7 @@ const server = http.createServer(async (req, res) => {
       logEntry.name   = `${user.firstName} ${user.lastName}`;
 
       if (user.status === 'verified') {
+        resetRateLimit(ip); // clear on success
         logEntry.success = true;
         logEntry.reason  = 'Verified';
         logData.logs.unshift(logEntry);
@@ -327,10 +373,17 @@ const server = http.createServer(async (req, res) => {
 
     // POST /admin/login
     if (req.method === 'POST' && resource === 'admin' && id === 'login') {
+      const ip = req.socket.remoteAddress || 'unknown';
+      if (isRateLimited(ip)) {
+        res.writeHead(429);
+        res.end(JSON.stringify({ error: 'Too many attempts. Try again in 10 minutes.' }));
+        return;
+      }
       const { username, password } = await readBody(req);
       if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
         const token = generateToken();
-        adminTokens.add(token);
+        adminTokens.set(token, Date.now());
+        resetRateLimit(ip); // clear on success
         console.log('[ADMIN] Login successful');
         res.writeHead(200);
         res.end(JSON.stringify({ token }));
@@ -459,7 +512,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bets — place a bet
     if (req.method === 'POST' && resource === 'bets') {
-      const { gameId, betType, side, label, odds, stake, line } = await readBody(req);
+      const { gameId, betType, side, label, odds, stake, line, cashAmount } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -511,16 +564,42 @@ const server = http.createServer(async (req, res) => {
         odds,
         ...(line != null ? { line } : {}),
         stake,
+        cashAmount,
         payout,
-        status: 'pending',
+        status: 'awaiting_payment',
         placedAt: new Date().toISOString(),
       };
 
       bets.unshift(bet);
-      balance = parseFloat((balance - stake).toFixed(2));
-      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  balance=$${balance}`);
+      // No balance deduction — payment confirmed in cash by admin
+      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  cash=$${cashAmount}  status=awaiting_payment`);
       res.writeHead(201);
-      res.end(JSON.stringify({ bet, balance }));
+      res.end(JSON.stringify({ bet }));
+      return;
+    }
+
+    // POST /bets/:id/confirm-payment — admin confirms cash received, activates bet
+    if (req.method === 'POST' && resource === 'bets' && id && subId === 'confirm-payment') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const betIdx = bets.findIndex((b) => b.id === id);
+      if (betIdx === -1) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Bet not found' }));
+        return;
+      }
+      if (bets[betIdx].status !== 'awaiting_payment') {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Bet is not awaiting payment' }));
+        return;
+      }
+      bets[betIdx] = { ...bets[betIdx], status: 'pending' };
+      console.log(`[CONFIRM] Bet ${id} → pending (cash confirmed)`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ bet: bets[betIdx] }));
       return;
     }
 
@@ -619,11 +698,18 @@ const server = http.createServer(async (req, res) => {
       }
       let voidedCount = 0;
       bets = bets.map((bet) => {
-        if (bet.gameId !== id || bet.status !== 'pending') return bet;
-        balance = parseFloat((balance + bet.stake).toFixed(2));
-        voidedCount++;
-        console.log(`[VOID] ${bet.label} → VOID  balance=$${balance}`);
-        return { ...bet, status: 'void' };
+        if (bet.gameId !== id) return bet;
+        if (bet.status === 'awaiting_payment') {
+          voidedCount++;
+          console.log(`[VOID] ${bet.label} → VOID (payment not confirmed)`);
+          return { ...bet, status: 'void' };
+        }
+        if (bet.status === 'pending') {
+          voidedCount++;
+          console.log(`[VOID] ${bet.label} → VOID`);
+          return { ...bet, status: 'void' };
+        }
+        return bet;
       });
       console.log(`[VOID] ${voidedCount} bet(s) voided for game ${id}`);
       res.writeHead(200);
@@ -644,7 +730,9 @@ server.listen(3002, () => {
   console.log('');
   console.log('  SBP Dev API  →  http://localhost:3002');
   console.log('');
-  console.log('  Admin creds  →  username: admin  |  password: Admin123!');
+  console.log('  Admin user   →  ADMIN_USERNAME env var (default: admin)');
+  console.log('  Admin pass   →  ADMIN_PASSWORD env var (required in production)');
+  console.log('  CORS origins →  ALLOWED_ORIGINS env var (default: localhost:3000,3001)');
   console.log('  User data    →  infra/users.json  (created on first sign-up)');
   console.log('  Sign-in log  →  infra/signin-log.json');
   console.log('');
