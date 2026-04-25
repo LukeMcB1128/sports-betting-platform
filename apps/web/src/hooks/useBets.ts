@@ -10,15 +10,16 @@ const POLL_INTERVAL_MS = 3000;
  *
  * Swap the fetch call for your real API endpoint when the .NET backend is ready.
  */
-const useBets = (): Bet[] => {
+const useBets = (userId: string): Bet[] => {
   const [bets, setBets] = useState<Bet[]>([]);
 
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
 
     const poll = async () => {
       try {
-        const data = await getBets();
+        const data = await getBets(userId);
         if (!cancelled) setBets(data);
       } catch {
         // Dev server not running — keep current state
@@ -32,7 +33,7 @@ const useBets = (): Bet[] => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [userId]);
 
   return bets;
 };

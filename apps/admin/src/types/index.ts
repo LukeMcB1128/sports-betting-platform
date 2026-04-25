@@ -29,6 +29,7 @@ export interface Bet {
   stake: number;
   payout: number;
   cashAmount: number; // cash declared by user at submission
+  userId: string;
   userName: string;
   status: BetStatus;
   placedAt: string; // ISO string

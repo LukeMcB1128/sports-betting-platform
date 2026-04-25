@@ -236,8 +236,9 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Content-Type', 'application/json');
 
   // Parse URL — strip query string, split into parts
-  const pathname = req.url.split('?')[0];
-  const parts    = pathname.split('/').filter(Boolean);
+  const parsedUrl = new URL(req.url, 'http://localhost');
+  const pathname  = parsedUrl.pathname;
+  const parts     = pathname.split('/').filter(Boolean);
   const resource = parts[0];        // 'auth' | 'admin' | 'games' | 'bets' | 'balance'
   const id       = parts[1] ?? null; // sub-path or UUID
   const subId    = parts[2] ?? null; // e.g. user UUID for /admin/users/:id
@@ -506,15 +507,27 @@ const server = http.createServer(async (req, res) => {
     // ── /bets ─────────────────────────────────────────────────────────────────
 
     // GET /bets
+    // Admin token → all bets. ?userId=<id> → that user's bets only. Else → 403.
     if (req.method === 'GET' && resource === 'bets' && !id) {
-      res.writeHead(200);
-      res.end(JSON.stringify(bets));
+      if (validateAdminToken(req)) {
+        res.writeHead(200);
+        res.end(JSON.stringify(bets));
+      } else {
+        const userId = parsedUrl.searchParams.get('userId');
+        if (!userId) {
+          res.writeHead(403);
+          res.end(JSON.stringify({ error: 'Forbidden' }));
+          return;
+        }
+        res.writeHead(200);
+        res.end(JSON.stringify(bets.filter((b) => b.userId === userId)));
+      }
       return;
     }
 
     // POST /bets — place a bet
     if (req.method === 'POST' && resource === 'bets' && !id) {
-      const { gameId, betType, side, label, odds, stake, line, cashAmount, userName } = await readBody(req);
+      const { gameId, betType, side, label, odds, stake, line, cashAmount, userName, userId } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -563,6 +576,7 @@ const server = http.createServer(async (req, res) => {
         stake,
         cashAmount,
         payout,
+        userId: userId || '',
         userName: userName || 'Unknown',
         status: 'awaiting_payment',
         placedAt: new Date().toISOString(),
