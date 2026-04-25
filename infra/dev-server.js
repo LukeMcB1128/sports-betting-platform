@@ -41,7 +41,7 @@ const path = require('path');
 
 // ── In-memory game/bet state ────────────────────────────────────────────────────
 let games = [];
-let bets = [];
+let bets  = [];
 let balance = 1000;
 
 // Active admin session tokens — map of token → createdAt timestamp
@@ -72,9 +72,11 @@ const resetRateLimit = (ip) => rateLimitMap.delete(ip);
 // ── File paths for persistent auth data ────────────────────────────────────────
 // DATA_DIR lets Render mount a persistent disk at a separate path without
 // overwriting the source files in infra/. Defaults to __dirname for local dev.
-const DATA_DIR   = process.env.DATA_DIR || __dirname;
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const LOG_FILE   = path.join(DATA_DIR, 'signin-log.json');
+const DATA_DIR    = process.env.DATA_DIR || __dirname;
+const USERS_FILE  = path.join(DATA_DIR, 'users.json');
+const LOG_FILE    = path.join(DATA_DIR, 'signin-log.json');
+const GAMES_FILE  = path.join(DATA_DIR, 'games.json');
+const BETS_FILE   = path.join(DATA_DIR, 'bets.json');
 
 // ── Admin credentials ───────────────────────────────────────────────────────────
 // Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables in production.
@@ -95,6 +97,13 @@ const readData = (file, defaultVal) => {
 const writeData = (file, data) => {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 };
+
+// Load persisted games and bets on startup
+games = readData(GAMES_FILE, []);
+bets  = readData(BETS_FILE,  []);
+
+const saveGames = () => writeData(GAMES_FILE, games);
+const saveBets  = () => writeData(BETS_FILE,  bets);
 
 // ── Crypto helpers ──────────────────────────────────────────────────────────────
 
@@ -218,6 +227,7 @@ const settleGameBets = (game) => {
   });
   if (settled > 0) {
     console.log(`[SETTLE] ${settled} bet(s) settled for game ${game.id}`);
+    saveBets();
   }
 };
 
@@ -583,6 +593,7 @@ const server = http.createServer(async (req, res) => {
       };
 
       bets.unshift(bet);
+      saveBets();
       // No balance deduction — payment confirmed in cash by admin
       console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  cash=$${cashAmount}  status=awaiting_payment`);
       res.writeHead(201);
@@ -609,6 +620,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       bets[betIdx] = { ...bets[betIdx], status: 'pending' };
+      saveBets();
       console.log(`[CONFIRM] Bet ${id} → pending (cash confirmed)`);
       res.writeHead(200);
       res.end(JSON.stringify({ bet: bets[betIdx] }));
@@ -624,6 +636,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'Bet not found' }));
         return;
       }
+      saveBets();
       console.log(`[BET_DEL] id=${id}`);
       res.writeHead(204);
       res.end();
@@ -644,6 +657,7 @@ const server = http.createServer(async (req, res) => {
       const game = await readBody(req);
       game.bettingEnabled = true; // auto-enable betting when a game is created
       games.unshift(game);
+      saveGames();
       console.log(`[ADD]    ${game.awayTeam} @ ${game.homeTeam} (${game.league})`);
       res.writeHead(201);
       res.end(JSON.stringify(game));
@@ -665,6 +679,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'Game not found' }));
         return;
       }
+      saveGames();
       console.log(`[UPDATE] id=${id}`, Object.keys(updates).join(', '));
 
       if (
@@ -689,6 +704,7 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'Game not found' }));
         return;
       }
+      saveGames();
       console.log(`[REMOVE] id=${id}`);
       res.writeHead(204);
       res.end();
@@ -723,6 +739,7 @@ const server = http.createServer(async (req, res) => {
         }
         return bet;
       });
+      saveBets();
       console.log(`[VOID] ${voidedCount} bet(s) voided for game ${id}`);
       res.writeHead(200);
       res.end(JSON.stringify({ voided: voidedCount }));
