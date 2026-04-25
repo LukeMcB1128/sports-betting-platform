@@ -255,7 +255,7 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
 
     const load = async () => {
       try {
-        const [fetchedBets, fetchedGames] = await Promise.all([fetchBets(), fetchGames()]);
+        const [fetchedBets, fetchedGames] = await Promise.all([fetchBets(adminToken), fetchGames()]);
         if (!cancelled) {
           setBets(fetchedBets);
           setGames(fetchedGames);

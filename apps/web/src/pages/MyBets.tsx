@@ -411,7 +411,9 @@ const BetCardDisplay: React.FC<{ bet: Bet; gameMap: Record<string, Game> }> = ({
 };
 
 const MyBets: React.FC = () => {
-  const bets  = useBets();
+  const storedUser = localStorage.getItem('authedUser');
+  const authedUser = storedUser ? JSON.parse(storedUser) : null;
+  const bets  = useBets(authedUser?.id ?? '');
   const games = useGames([]);
 
   const gameMap = React.useMemo(

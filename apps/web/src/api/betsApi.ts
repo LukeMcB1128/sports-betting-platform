@@ -11,6 +11,7 @@ export interface PlaceBetPayload {
   line?: number;  // spread line at placement time (spread bets only)
   stake: number;
   cashAmount: number;
+  userId: string;
   userName: string;
 }
 
@@ -38,8 +39,8 @@ export const placeBet = async (payload: PlaceBetPayload): Promise<PlaceBetRespon
   return res.json();
 };
 
-export const getBets = async (): Promise<Bet[]> => {
-  const res = await fetch(`${API_BASE}/bets`);
+export const getBets = async (userId: string): Promise<Bet[]> => {
+  const res = await fetch(`${API_BASE}/bets?userId=${encodeURIComponent(userId)}`);
   if (!res.ok) throw new Error('Failed to fetch bets');
   return res.json();
 };

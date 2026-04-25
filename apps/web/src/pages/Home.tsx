@@ -108,6 +108,7 @@ const Home: React.FC = () => {
   const groups = groupGames(games);
   const storedUser = localStorage.getItem('authedUser');
   const authedUser = storedUser ? JSON.parse(storedUser) : null;
+  const userId   = authedUser?.id ?? '';
   const userName = authedUser ? `${authedUser.firstName} ${authedUser.lastName}` : '';
 
   return (
@@ -135,6 +136,7 @@ const Home: React.FC = () => {
                 <GameCard
                   key={game.id}
                   game={game}
+                  userId={userId}
                   userName={userName}
                 />
               ))}

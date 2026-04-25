@@ -7,6 +7,7 @@ import BetSlipPanel from './BetSlipPanel';
 
 interface GameCardProps {
   game: Game;
+  userId: string;
   userName: string;
 }
 
@@ -147,7 +148,7 @@ const formatSpreadLabel = (team: string, line: number): string => {
 const isSameBet = (a: SelectedBet | null, betType: BetType, side: BetSide) =>
   a !== null && a.betType === betType && a.side === side;
 
-const GameCard: React.FC<GameCardProps> = ({ game, userName }) => {
+const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
   const [selected, setSelected] = useState<SelectedBet | null>(null);
 
   const isLive = game.status === 'live';
@@ -275,6 +276,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, userName }) => {
                     odds={selected.odds}
                     line={selected.line}
                     maxStake={game.betLimits?.[selected.side]?.maxStake}
+                    userId={userId}
                     userName={userName}
                     onClose={() => setSelected(null)}
                     onSuccess={handleBetSuccess}
