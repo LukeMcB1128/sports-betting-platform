@@ -45,6 +45,7 @@ let bets  = [];
 let balance = 1000;
 
 // Active admin session tokens — map of token → createdAt timestamp
+// Persisted to disk so tokens survive server restarts/redeploys.
 const adminTokens = new Map();
 
 // Token TTL: 24 hours
@@ -77,6 +78,7 @@ const USERS_FILE  = path.join(DATA_DIR, 'users.json');
 const LOG_FILE    = path.join(DATA_DIR, 'signin-log.json');
 const GAMES_FILE  = path.join(DATA_DIR, 'games.json');
 const BETS_FILE   = path.join(DATA_DIR, 'bets.json');
+const TOKENS_FILE = path.join(DATA_DIR, 'admin-tokens.json');
 
 // ── Admin credentials ───────────────────────────────────────────────────────────
 // Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables in production.
@@ -102,8 +104,16 @@ const writeData = (file, data) => {
 games = readData(GAMES_FILE, []);
 bets  = readData(BETS_FILE,  []);
 
-const saveGames = () => writeData(GAMES_FILE, games);
-const saveBets  = () => writeData(BETS_FILE,  bets);
+const saveGames   = () => writeData(GAMES_FILE, games);
+const saveBets    = () => writeData(BETS_FILE,  bets);
+const saveTokens  = () => writeData(TOKENS_FILE, Object.fromEntries(adminTokens));
+
+// Load persisted admin tokens, pruning any that are already expired
+const storedTokens = readData(TOKENS_FILE, {});
+const now = Date.now();
+Object.entries(storedTokens).forEach(([token, createdAt]) => {
+  if (now - createdAt < TOKEN_TTL_MS) adminTokens.set(token, createdAt);
+});
 
 // ── Crypto helpers ──────────────────────────────────────────────────────────────
 
@@ -130,6 +140,7 @@ const validateAdminToken = (req) => {
   // Reject tokens older than TOKEN_TTL_MS
   if (Date.now() - adminTokens.get(token) > TOKEN_TTL_MS) {
     adminTokens.delete(token);
+    saveTokens();
     return false;
   }
   return true;
@@ -396,6 +407,7 @@ const server = http.createServer(async (req, res) => {
       if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
         const token = generateToken();
         adminTokens.set(token, Date.now());
+        saveTokens();
         resetRateLimit(ip); // clear on success
         console.log('[ADMIN] Login successful');
         res.writeHead(200);
@@ -411,7 +423,7 @@ const server = http.createServer(async (req, res) => {
     // POST /admin/logout
     if (req.method === 'POST' && resource === 'admin' && id === 'logout') {
       const token = req.headers['x-admin-token'];
-      if (token) adminTokens.delete(token);
+      if (token) { adminTokens.delete(token); saveTokens(); }
       res.writeHead(200);
       res.end(JSON.stringify({ success: true }));
       return;

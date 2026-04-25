@@ -261,8 +261,15 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
           setGames(fetchedGames);
           setError(null);
         }
-      } catch {
-        if (!cancelled) setError('Cannot connect to dev server. Run: node infra/dev-server.js');
+      } catch (err: unknown) {
+        if (!cancelled) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized') || msg.includes('Forbidden')) {
+            setError('Session expired — please log out and log back in.');
+          } else {
+            setError('Cannot connect to server. Check that the API is running.');
+          }
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -271,7 +278,7 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
     load();
     const interval = setInterval(load, POLL_INTERVAL_MS);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [adminToken]);
 
   const gameMap = Object.fromEntries(games.map((g) => [g.id, g]));
 

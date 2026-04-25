@@ -6,7 +6,7 @@ export const fetchBets = async (adminToken: string): Promise<Bet[]> => {
   const res = await fetch(`${API_BASE}/bets`, {
     headers: { 'X-Admin-Token': adminToken },
   });
-  if (!res.ok) throw new Error('Failed to fetch bets');
+  if (!res.ok) throw new Error(`Failed to fetch bets (${res.status})`);
   return res.json();
 };
 
