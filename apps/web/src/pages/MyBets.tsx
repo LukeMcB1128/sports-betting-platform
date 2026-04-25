@@ -477,7 +477,7 @@ const MyBets: React.FC = () => {
             <>
               <SectionHeading>Awaiting Payment</SectionHeading>
               <AwaitingBanner>
-                Hand over your cash — once confirmed by admin your bet will become active.
+                Give cash to Luke Puthoff or Venmo @Luke-Puthoff-1 to pay your bet.
               </AwaitingBanner>
               <BetList>
                 {[...awaitingBets].sort(byRecent).map((bet) => (

@@ -293,7 +293,7 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
       </InputRow>
 
       {error && <ErrorMsg>{error}</ErrorMsg>}
-      {success && <SuccessMsg>Bet submitted! Hand over your cash and it will be confirmed shortly.</SuccessMsg>}
+      {success && <SuccessMsg>Bet submitted! Hand over your cash or venmo Luke-Puthoff-1.</SuccessMsg>}
 
       <PlaceBetButton
         onClick={handleSubmit}
