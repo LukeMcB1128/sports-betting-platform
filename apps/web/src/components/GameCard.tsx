@@ -4,6 +4,7 @@ import { Game, BetType, BetSide } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import OddsButton from './OddsButton';
 import BetSlipPanel from './BetSlipPanel';
+import { useParlay } from '../context/ParlayContext';
 
 interface GameCardProps {
   game: Game;
@@ -133,6 +134,35 @@ const OddsRow = styled.div`
   gap: 4px;
 `;
 
+const OddsWithParlay = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+`;
+
+const ParlayAddButton = styled.button<{ inParlay: boolean }>`
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: flex-start;
+  transition: background-color 0.15s, color 0.15s;
+
+  color: ${({ inParlay }) => (inParlay ? colors.positive : colors.textMuted)};
+  background-color: ${({ inParlay }) => (inParlay ? 'rgba(34,197,94,0.12)' : 'transparent')};
+  border: 1px solid ${({ inParlay }) => (inParlay ? 'rgba(34,197,94,0.3)' : colors.border)};
+
+  &:hover {
+    color: ${({ inParlay }) => (inParlay ? colors.negative : colors.positive)};
+    border-color: ${({ inParlay }) => (inParlay ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)')};
+    background-color: ${({ inParlay }) =>
+      inParlay ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)'};
+  }
+`;
+
 const formatDateTime = (iso: string): string => {
   const d = new Date(iso);
   const date = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -150,6 +180,7 @@ const isSameBet = (a: SelectedBet | null, betType: BetType, side: BetSide) =>
 
 const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
   const [selected, setSelected] = useState<SelectedBet | null>(null);
+  const { addLeg, removeLeg, hasLeg } = useParlay();
 
   const isLive = game.status === 'live';
   const isResolving = game.status === 'resolving';
@@ -217,20 +248,44 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                   <MarketGroup>
                     <MarketLabel>Moneyline</MarketLabel>
                     <OddsRow>
-                      <OddsButton
-                        label={game.awayTeam}
-                        odds={game.odds.moneyline.away}
-                        selected={isSameBet(selected, 'moneyline', 'away')}
-                        onSelect={() => handleSelect('moneyline', 'away', game.awayTeam, game.odds.moneyline.away)}
-                        disabled={lockedSides.away}
-                      />
-                      <OddsButton
-                        label={game.homeTeam}
-                        odds={game.odds.moneyline.home}
-                        selected={isSameBet(selected, 'moneyline', 'home')}
-                        onSelect={() => handleSelect('moneyline', 'home', game.homeTeam, game.odds.moneyline.home)}
-                        disabled={lockedSides.home}
-                      />
+                      {/* Away moneyline */}
+                      <OddsWithParlay>
+                        <OddsButton
+                          label={game.awayTeam}
+                          odds={game.odds.moneyline.away}
+                          selected={isSameBet(selected, 'moneyline', 'away')}
+                          onSelect={() => handleSelect('moneyline', 'away', game.awayTeam, game.odds.moneyline.away)}
+                          disabled={lockedSides.away}
+                        />
+                        <ParlayAddButton
+                          inParlay={hasLeg(game.id, 'moneyline', 'away')}
+                          onClick={() => hasLeg(game.id, 'moneyline', 'away')
+                            ? removeLeg(game.id, 'moneyline', 'away')
+                            : addLeg({ gameId: game.id, betType: 'moneyline', side: 'away', label: game.awayTeam, odds: game.odds.moneyline.away })
+                          }
+                        >
+                          {hasLeg(game.id, 'moneyline', 'away') ? '✓ In Parlay' : '+ Parlay'}
+                        </ParlayAddButton>
+                      </OddsWithParlay>
+                      {/* Home moneyline */}
+                      <OddsWithParlay>
+                        <OddsButton
+                          label={game.homeTeam}
+                          odds={game.odds.moneyline.home}
+                          selected={isSameBet(selected, 'moneyline', 'home')}
+                          onSelect={() => handleSelect('moneyline', 'home', game.homeTeam, game.odds.moneyline.home)}
+                          disabled={lockedSides.home}
+                        />
+                        <ParlayAddButton
+                          inParlay={hasLeg(game.id, 'moneyline', 'home')}
+                          onClick={() => hasLeg(game.id, 'moneyline', 'home')
+                            ? removeLeg(game.id, 'moneyline', 'home')
+                            : addLeg({ gameId: game.id, betType: 'moneyline', side: 'home', label: game.homeTeam, odds: game.odds.moneyline.home })
+                          }
+                        >
+                          {hasLeg(game.id, 'moneyline', 'home') ? '✓ In Parlay' : '+ Parlay'}
+                        </ParlayAddButton>
+                      </OddsWithParlay>
                     </OddsRow>
                   </MarketGroup>
 
@@ -238,30 +293,54 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                     <MarketGroup>
                       <MarketLabel>Spread</MarketLabel>
                       <OddsRow>
-                        <OddsButton
-                          label={formatSpreadLabel(game.awayTeam, game.odds.spread.away.line)}
-                          odds={game.odds.spread.away.juice}
-                          selected={isSameBet(selected, 'spread', 'away')}
-                          onSelect={() => handleSelect(
-                            'spread', 'away',
-                            formatSpreadLabel(game.awayTeam, game.odds.spread.away.line),
-                            game.odds.spread.away.juice,
-                            game.odds.spread.away.line,
-                          )}
-                          disabled={lockedSides.away}
-                        />
-                        <OddsButton
-                          label={formatSpreadLabel(game.homeTeam, game.odds.spread.home.line)}
-                          odds={game.odds.spread.home.juice}
-                          selected={isSameBet(selected, 'spread', 'home')}
-                          onSelect={() => handleSelect(
-                            'spread', 'home',
-                            formatSpreadLabel(game.homeTeam, game.odds.spread.home.line),
-                            game.odds.spread.home.juice,
-                            game.odds.spread.home.line,
-                          )}
-                          disabled={lockedSides.home}
-                        />
+                        {/* Away spread */}
+                        <OddsWithParlay>
+                          <OddsButton
+                            label={formatSpreadLabel(game.awayTeam, game.odds.spread.away.line)}
+                            odds={game.odds.spread.away.juice}
+                            selected={isSameBet(selected, 'spread', 'away')}
+                            onSelect={() => handleSelect(
+                              'spread', 'away',
+                              formatSpreadLabel(game.awayTeam, game.odds.spread.away.line),
+                              game.odds.spread.away.juice,
+                              game.odds.spread.away.line,
+                            )}
+                            disabled={lockedSides.away}
+                          />
+                          <ParlayAddButton
+                            inParlay={hasLeg(game.id, 'spread', 'away')}
+                            onClick={() => hasLeg(game.id, 'spread', 'away')
+                              ? removeLeg(game.id, 'spread', 'away')
+                              : addLeg({ gameId: game.id, betType: 'spread', side: 'away', label: formatSpreadLabel(game.awayTeam, game.odds.spread.away.line), odds: game.odds.spread.away.juice, line: game.odds.spread.away.line })
+                            }
+                          >
+                            {hasLeg(game.id, 'spread', 'away') ? '✓ In Parlay' : '+ Parlay'}
+                          </ParlayAddButton>
+                        </OddsWithParlay>
+                        {/* Home spread */}
+                        <OddsWithParlay>
+                          <OddsButton
+                            label={formatSpreadLabel(game.homeTeam, game.odds.spread.home.line)}
+                            odds={game.odds.spread.home.juice}
+                            selected={isSameBet(selected, 'spread', 'home')}
+                            onSelect={() => handleSelect(
+                              'spread', 'home',
+                              formatSpreadLabel(game.homeTeam, game.odds.spread.home.line),
+                              game.odds.spread.home.juice,
+                              game.odds.spread.home.line,
+                            )}
+                            disabled={lockedSides.home}
+                          />
+                          <ParlayAddButton
+                            inParlay={hasLeg(game.id, 'spread', 'home')}
+                            onClick={() => hasLeg(game.id, 'spread', 'home')
+                              ? removeLeg(game.id, 'spread', 'home')
+                              : addLeg({ gameId: game.id, betType: 'spread', side: 'home', label: formatSpreadLabel(game.homeTeam, game.odds.spread.home.line), odds: game.odds.spread.home.juice, line: game.odds.spread.home.line })
+                            }
+                          >
+                            {hasLeg(game.id, 'spread', 'home') ? '✓ In Parlay' : '+ Parlay'}
+                          </ParlayAddButton>
+                        </OddsWithParlay>
                       </OddsRow>
                     </MarketGroup>
                   )}

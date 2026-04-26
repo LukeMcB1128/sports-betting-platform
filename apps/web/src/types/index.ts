@@ -74,3 +74,27 @@ export interface Game {
   betLimits?: BetLimits;
   lockedSides?: LockedSides;
 }
+
+// ─── Parlays ──────────────────────────────────────────────────────────────────
+
+export interface ParlayLeg {
+  gameId: string;
+  betType: BetType;
+  side: BetSide;
+  label: string;
+  odds: number;       // American odds for this leg
+  line?: number;
+}
+
+export interface Parlay {
+  id: string;
+  userId: string;
+  userName: string;
+  legs: ParlayLeg[];
+  combinedOdds: number;  // American, already house-edge-adjusted
+  stake: number;
+  payout: number;
+  cashAmount: number;
+  status: 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
+  placedAt: string;      // ISO string
+}
