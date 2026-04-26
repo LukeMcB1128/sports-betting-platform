@@ -639,6 +639,38 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // POST /bets/:id/settle — admin manually marks a pending bet won/lost/void
+    if (req.method === 'POST' && resource === 'bets' && id && subId === 'settle') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const { outcome } = await readBody(req);
+      if (!['won', 'lost', 'void'].includes(outcome)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'outcome must be won, lost, or void' }));
+        return;
+      }
+      const betIdx = bets.findIndex((b) => b.id === id);
+      if (betIdx === -1) {
+        res.writeHead(404);
+        res.end(JSON.stringify({ error: 'Bet not found' }));
+        return;
+      }
+      if (bets[betIdx].status !== 'pending') {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Only pending bets can be manually settled' }));
+        return;
+      }
+      bets[betIdx] = { ...bets[betIdx], status: outcome };
+      saveBets();
+      console.log(`[SETTLE] Manual: bet ${id} → ${outcome.toUpperCase()}  (${bets[betIdx].label})`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ bet: bets[betIdx] }));
+      return;
+    }
+
     // DELETE /bets/:id — remove a bet record
     if (req.method === 'DELETE' && resource === 'bets' && id) {
       const before = bets.length;

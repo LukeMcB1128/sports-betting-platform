@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Bet, Game, BetStatus } from '../types';
 import { colors } from '../styles/GlobalStyles';
-import { fetchBets, deleteBet, confirmPayment } from '../api/betsApi';
+import { fetchBets, deleteBet, confirmPayment, settleBet } from '../api/betsApi';
 import { fetchGames } from '../api/gamesApi';
 
 const POLL_INTERVAL_MS = 5000;
@@ -216,6 +216,37 @@ const ConfirmButton = styled.button`
   }
 `;
 
+const SettleButton = styled.button<{ variant: 'won' | 'lost' | 'void' }>`
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+
+  color: ${({ variant }) =>
+    variant === 'won'  ? colors.success :
+    variant === 'lost' ? colors.danger  : colors.textMuted};
+  border: 1px solid ${({ variant }) =>
+    variant === 'won'  ? `${colors.success}60` :
+    variant === 'lost' ? `${colors.danger}60`  : `${colors.textMuted}60`};
+
+  &:hover:not(:disabled) {
+    background-color: ${({ variant }) =>
+      variant === 'won'  ? `${colors.success}18` :
+      variant === 'lost' ? `${colors.danger}18`  : `${colors.textMuted}18`};
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
 
 const EmptyCell = styled.td`
   padding: 40px 14px;
@@ -249,6 +280,7 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<Set<string>>(new Set());
+  const [settling, setSettling] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -291,6 +323,18 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
       // silently ignore — bet will reappear on next poll if delete failed
     } finally {
       setRemoving((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  };
+
+  const handleSettle = async (id: string, outcome: 'won' | 'lost' | 'void') => {
+    setSettling((prev) => new Set(prev).add(id));
+    try {
+      const updated = await settleBet(id, outcome, adminToken);
+      setBets((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    } catch {
+      // silently ignore — state will reconcile on next poll
+    } finally {
+      setSettling((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
@@ -466,7 +510,7 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
 
                     {/* Actions */}
                     <Td>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {bet.status === 'awaiting_payment' && (
                           <ConfirmButton
                             onClick={() => handleConfirmPayment(bet.id)}
@@ -474,6 +518,31 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
                           >
                             {confirming.has(bet.id) ? 'Confirming…' : 'Mark as Paid'}
                           </ConfirmButton>
+                        )}
+                        {bet.status === 'pending' && (
+                          <>
+                            <SettleButton
+                              variant="won"
+                              onClick={() => handleSettle(bet.id, 'won')}
+                              disabled={settling.has(bet.id)}
+                            >
+                              Won
+                            </SettleButton>
+                            <SettleButton
+                              variant="lost"
+                              onClick={() => handleSettle(bet.id, 'lost')}
+                              disabled={settling.has(bet.id)}
+                            >
+                              Lost
+                            </SettleButton>
+                            <SettleButton
+                              variant="void"
+                              onClick={() => handleSettle(bet.id, 'void')}
+                              disabled={settling.has(bet.id)}
+                            >
+                              Void
+                            </SettleButton>
+                          </>
                         )}
                         <RemoveButton
                           onClick={() => handleRemove(bet.id)}
