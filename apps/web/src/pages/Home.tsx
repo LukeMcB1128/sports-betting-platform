@@ -3,7 +3,9 @@ import styled from 'styled-components';
 import { Game } from '../types'; // used by groupGames type
 import { colors } from '../styles/GlobalStyles';
 import GameCard from '../components/GameCard';
+import ParlayBadge from '../components/ParlayBadge';
 import useGames from '../hooks/useGames';
+import { ParlayProvider } from '../context/ParlayContext';
 
 // Fallback shown only if the admin app has never been opened in this browser
 const FALLBACK_GAMES: Game[] = [];
@@ -112,39 +114,43 @@ const Home: React.FC = () => {
   const userName = authedUser ? `${authedUser.firstName} ${authedUser.lastName}` : '';
 
   return (
-    <Page>
-      <PageTitle>Games</PageTitle>
+    <ParlayProvider>
+      <Page>
+        <PageTitle>Games</PageTitle>
 
-      {groups.length === 0 ? (
-        <EmptyState>
-          <EmptyTitle>No games available</EmptyTitle>
-          <p>Check back soon.</p>
-        </EmptyState>
-      ) : (
-        groups.map(({ label, games: groupGames }) => (
-          <Section key={label}>
-            <SectionHeader>
-              {label === 'Live Now' && <LiveDot />}
-              <SectionTitle>
-                {label === 'Live Now' || label.startsWith('Finished')
-                  ? label
-                  : `Upcoming - ${label}`}
-              </SectionTitle>
-            </SectionHeader>
-            <GameGrid>
-              {groupGames.map((game) => (
-                <GameCard
-                  key={game.id}
-                  game={game}
-                  userId={userId}
-                  userName={userName}
-                />
-              ))}
-            </GameGrid>
-          </Section>
-        ))
-      )}
-    </Page>
+        {groups.length === 0 ? (
+          <EmptyState>
+            <EmptyTitle>No games available</EmptyTitle>
+            <p>Check back soon.</p>
+          </EmptyState>
+        ) : (
+          groups.map(({ label, games: groupGames }) => (
+            <Section key={label}>
+              <SectionHeader>
+                {label === 'Live Now' && <LiveDot />}
+                <SectionTitle>
+                  {label === 'Live Now' || label.startsWith('Finished')
+                    ? label
+                    : `Upcoming - ${label}`}
+                </SectionTitle>
+              </SectionHeader>
+              <GameGrid>
+                {groupGames.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    userId={userId}
+                    userName={userName}
+                  />
+                ))}
+              </GameGrid>
+            </Section>
+          ))
+        )}
+
+        <ParlayBadge userId={userId} userName={userName} />
+      </Page>
+    </ParlayProvider>
   );
 };
 

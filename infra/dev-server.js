@@ -39,9 +39,10 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
-// ── In-memory game/bet state ────────────────────────────────────────────────────
-let games = [];
-let bets  = [];
+// ── In-memory game/bet/parlay state ──────────────────────────────────────────
+let games   = [];
+let bets    = [];
+let parlays = [];
 let balance = 1000;
 
 // Active admin session tokens — map of token → createdAt timestamp
@@ -73,12 +74,13 @@ const resetRateLimit = (ip) => rateLimitMap.delete(ip);
 // ── File paths for persistent auth data ────────────────────────────────────────
 // DATA_DIR lets Render mount a persistent disk at a separate path without
 // overwriting the source files in infra/. Defaults to __dirname for local dev.
-const DATA_DIR    = process.env.DATA_DIR || __dirname;
-const USERS_FILE  = path.join(DATA_DIR, 'users.json');
-const LOG_FILE    = path.join(DATA_DIR, 'signin-log.json');
-const GAMES_FILE  = path.join(DATA_DIR, 'games.json');
-const BETS_FILE   = path.join(DATA_DIR, 'bets.json');
-const TOKENS_FILE = path.join(DATA_DIR, 'admin-tokens.json');
+const DATA_DIR      = process.env.DATA_DIR || __dirname;
+const USERS_FILE    = path.join(DATA_DIR, 'users.json');
+const LOG_FILE      = path.join(DATA_DIR, 'signin-log.json');
+const GAMES_FILE    = path.join(DATA_DIR, 'games.json');
+const BETS_FILE     = path.join(DATA_DIR, 'bets.json');
+const PARLAYS_FILE  = path.join(DATA_DIR, 'parlays.json');
+const TOKENS_FILE   = path.join(DATA_DIR, 'admin-tokens.json');
 
 // ── Admin credentials ───────────────────────────────────────────────────────────
 // Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables in production.
@@ -100,13 +102,15 @@ const writeData = (file, data) => {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 };
 
-// Load persisted games and bets on startup
-games = readData(GAMES_FILE, []);
-bets  = readData(BETS_FILE,  []);
+// Load persisted games, bets, and parlays on startup
+games   = readData(GAMES_FILE,   []);
+bets    = readData(BETS_FILE,    []);
+parlays = readData(PARLAYS_FILE, []);
 
-const saveGames   = () => writeData(GAMES_FILE, games);
-const saveBets    = () => writeData(BETS_FILE,  bets);
-const saveTokens  = () => writeData(TOKENS_FILE, Object.fromEntries(adminTokens));
+const saveGames   = () => writeData(GAMES_FILE,   games);
+const saveBets    = () => writeData(BETS_FILE,     bets);
+const saveParlays = () => writeData(PARLAYS_FILE,  parlays);
+const saveTokens  = () => writeData(TOKENS_FILE,   Object.fromEntries(adminTokens));
 
 // Load persisted admin tokens, pruning any that are already expired
 const storedTokens = readData(TOKENS_FILE, {});
@@ -243,6 +247,94 @@ const settleGameBets = (game) => {
     console.log(`[SETTLE] ${settled} bet(s) settled for game ${game.id}`);
     saveBets();
   }
+};
+
+/**
+ * Settle parlay legs for a game that has just reached final status.
+ * - Any leg on this game is evaluated; if lost → whole parlay lost
+ * - If all legs are now settled (won or void), finalize the parlay
+ * - Voided legs are removed; if remaining legs ≥ 1 → parlay wins with recalc payout
+ * - If all legs voided → parlay is void
+ */
+const toDecimalOdds = (american) =>
+  american > 0 ? (american / 100) + 1 : (100 / Math.abs(american)) + 1;
+
+const toAmericanOdds = (decimal) =>
+  decimal >= 2
+    ? Math.round((decimal - 1) * 100)
+    : Math.round(-100 / (decimal - 1));
+
+const settleGameParlays = (game) => {
+  let changed = false;
+  parlays = parlays.map((parlay) => {
+    if (parlay.status !== 'pending') return parlay;
+
+    const hasLegForGame = parlay.legs.some((leg) => leg.gameId === game.id);
+    if (!hasLegForGame) return parlay;
+
+    // Evaluate each leg for this game
+    const updatedLegs = parlay.legs.map((leg) => {
+      if (leg.gameId !== game.id) return leg;
+      const outcome = settleBetOutcome(leg, game); // won / lost / void
+      return { ...leg, _outcome: outcome };
+    });
+
+    // If any leg lost → parlay is lost
+    if (updatedLegs.some((l) => l._outcome === 'lost')) {
+      changed = true;
+      console.log(`[PARLAY SETTLE] id=${parlay.id} → LOST`);
+      const clean = updatedLegs.map(({ _outcome, ...l }) => l);
+      return { ...parlay, legs: clean, status: 'lost' };
+    }
+
+    // Check if all legs are now resolved (every leg either has _outcome or was already settled from a prior game)
+    const allResolved = updatedLegs.every((l) => l._outcome !== undefined || l._settled);
+    if (!allResolved) {
+      // Some legs are still pending on other games — mark evaluated legs as settled
+      const clean = updatedLegs.map(({ _outcome, ...l }) =>
+        _outcome ? { ...l, _settled: true, _legOutcome: _outcome } : l
+      );
+      return { ...parlay, legs: clean };
+    }
+
+    // All legs resolved — determine final outcome
+    const wonLegs = updatedLegs.filter(
+      (l) => l._outcome === 'won' || l._legOutcome === 'won'
+    );
+    const voidLegs = updatedLegs.filter(
+      (l) => l._outcome === 'void' || l._legOutcome === 'void'
+    );
+
+    if (wonLegs.length === 0 && voidLegs.length === updatedLegs.length) {
+      // All void → parlay void
+      changed = true;
+      console.log(`[PARLAY SETTLE] id=${parlay.id} → VOID (all legs voided)`);
+      const clean = updatedLegs.map(({ _outcome, _settled, _legOutcome, ...l }) => l);
+      return { ...parlay, legs: clean, status: 'void' };
+    }
+
+    // At least one win, rest void — recalculate payout from surviving legs
+    const survivingLegs = [...wonLegs];
+    let newPayout;
+    if (survivingLegs.length === 1) {
+      // Single surviving leg — straight bet payout
+      const leg = survivingLegs[0];
+      const profit = leg.odds > 0
+        ? parlay.stake * (leg.odds / 100)
+        : parlay.stake * (100 / Math.abs(leg.odds));
+      newPayout = parseFloat((parlay.stake + profit).toFixed(2));
+    } else {
+      const combined = survivingLegs.reduce((acc, l) => acc * toDecimalOdds(l.odds), 1);
+      newPayout = parseFloat((parlay.stake * combined).toFixed(2));
+    }
+
+    changed = true;
+    console.log(`[PARLAY SETTLE] id=${parlay.id} → WON  payout=$${newPayout}`);
+    const clean = updatedLegs.map(({ _outcome, _settled, _legOutcome, ...l }) => l);
+    return { ...parlay, legs: clean, status: 'won', payout: newPayout };
+  });
+
+  if (changed) saveParlays();
 };
 
 // ── Server ──────────────────────────────────────────────────────────────────────
@@ -736,6 +828,7 @@ const server = http.createServer(async (req, res) => {
         updated.awayScore !== undefined
       ) {
         settleGameBets(updated);
+        settleGameParlays(updated);
       }
 
       res.writeHead(200);
@@ -791,6 +884,139 @@ const server = http.createServer(async (req, res) => {
       console.log(`[VOID] ${voidedCount} bet(s) voided for game ${id}`);
       res.writeHead(200);
       res.end(JSON.stringify({ voided: voidedCount }));
+      return;
+    }
+
+    // ── /parlays ──────────────────────────────────────────────────────────────
+
+    // GET /parlays — admin token → all; ?userId=<id> → user's parlays
+    if (req.method === 'GET' && resource === 'parlays' && !id) {
+      if (validateAdminToken(req)) {
+        res.writeHead(200);
+        res.end(JSON.stringify(parlays));
+      } else {
+        const userId = parsedUrl.searchParams.get('userId');
+        if (!userId) {
+          res.writeHead(403);
+          res.end(JSON.stringify({ error: 'Forbidden' }));
+          return;
+        }
+        res.writeHead(200);
+        res.end(JSON.stringify(parlays.filter((p) => p.userId === userId)));
+      }
+      return;
+    }
+
+    // POST /parlays — place a parlay
+    if (req.method === 'POST' && resource === 'parlays' && !id) {
+      const { legs, combinedOdds, stake, cashAmount, userId, userName } = await readBody(req);
+
+      if (!legs || !Array.isArray(legs) || legs.length < 2) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Parlay requires at least 2 legs' }));
+        return;
+      }
+      if (legs.length > 8) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Parlay cannot exceed 8 legs' }));
+        return;
+      }
+      if (combinedOdds == null || !stake || typeof stake !== 'number' || stake <= 0) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Missing required fields' }));
+        return;
+      }
+
+      // Payout = stake × decimal conversion of combinedOdds
+      const combinedDecimal = combinedOdds > 0
+        ? (combinedOdds / 100) + 1
+        : (100 / Math.abs(combinedOdds)) + 1;
+      const payout = parseFloat((stake * combinedDecimal).toFixed(2));
+
+      const parlay = {
+        id: generateId(),
+        userId: userId || '',
+        userName: userName || 'Unknown',
+        legs,
+        combinedOdds,
+        stake,
+        payout,
+        cashAmount: cashAmount ?? stake,
+        status: 'awaiting_payment',
+        placedAt: new Date().toISOString(),
+      };
+
+      parlays.unshift(parlay);
+      saveParlays();
+      console.log(`[PARLAY] ${legs.length}-leg  odds=${combinedOdds > 0 ? '+' : ''}${combinedOdds}  stake=$${stake}  payout=$${payout}`);
+      res.writeHead(201);
+      res.end(JSON.stringify({ parlay }));
+      return;
+    }
+
+    // POST /parlays/:id/confirm-payment
+    if (req.method === 'POST' && resource === 'parlays' && id && subId === 'confirm-payment') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const idx = parlays.findIndex((p) => p.id === id);
+      if (idx === -1) { res.writeHead(404); res.end(JSON.stringify({ error: 'Parlay not found' })); return; }
+      if (parlays[idx].status !== 'awaiting_payment') {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Parlay is not awaiting payment' }));
+        return;
+      }
+      parlays[idx] = { ...parlays[idx], status: 'pending' };
+      saveParlays();
+      console.log(`[PARLAY CONFIRM] id=${id} → pending`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ parlay: parlays[idx] }));
+      return;
+    }
+
+    // POST /parlays/:id/settle — admin manually settles
+    if (req.method === 'POST' && resource === 'parlays' && id && subId === 'settle') {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const { outcome } = await readBody(req);
+      if (!['won', 'lost', 'void'].includes(outcome)) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'outcome must be won, lost, or void' }));
+        return;
+      }
+      const idx = parlays.findIndex((p) => p.id === id);
+      if (idx === -1) { res.writeHead(404); res.end(JSON.stringify({ error: 'Parlay not found' })); return; }
+      if (parlays[idx].status !== 'pending') {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Only pending parlays can be manually settled' }));
+        return;
+      }
+      parlays[idx] = { ...parlays[idx], status: outcome };
+      saveParlays();
+      console.log(`[PARLAY SETTLE] Manual: id=${id} → ${outcome.toUpperCase()}`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ parlay: parlays[idx] }));
+      return;
+    }
+
+    // DELETE /parlays/:id
+    if (req.method === 'DELETE' && resource === 'parlays' && id) {
+      if (!validateAdminToken(req)) {
+        res.writeHead(401);
+        res.end(JSON.stringify({ error: 'Unauthorized' }));
+        return;
+      }
+      const before = parlays.length;
+      parlays = parlays.filter((p) => p.id !== id);
+      if (parlays.length === before) { res.writeHead(404); res.end(JSON.stringify({ error: 'Parlay not found' })); return; }
+      saveParlays();
+      res.writeHead(204);
+      res.end();
       return;
     }
 

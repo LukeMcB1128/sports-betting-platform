@@ -78,6 +78,30 @@ export interface Game {
   specials?: Special[];
 }
 
+// ─── Parlays ──────────────────────────────────────────────────────────────────
+
+export interface ParlayLeg {
+  gameId: string;
+  betType: BetType;
+  side: BetSide;
+  label: string;
+  odds: number;
+  line?: number;
+}
+
+export interface Parlay {
+  id: string;
+  userId: string;
+  userName: string;
+  legs: ParlayLeg[];
+  combinedOdds: number;
+  stake: number;
+  payout: number;
+  cashAmount: number;
+  status: 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
+  placedAt: string;
+}
+
 // Form shapes (all strings before parsing)
 export interface AddGameFormData {
   sport: string;

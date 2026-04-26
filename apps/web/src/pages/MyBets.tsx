@@ -1,9 +1,10 @@
 import React from 'react';
 import styled, { css } from 'styled-components';
-import { Bet, BetStatus, Game } from '../types';
+import { Bet, BetStatus, Game, Parlay } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import useBets from '../hooks/useBets';
 import useGames from '../hooks/useGames';
+import useParlays from '../hooks/useParlays';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -274,6 +275,157 @@ const EmptyTitle = styled.p`
   margin-bottom: 8px;
 `;
 
+// ─── Parlay cards ────────────────────────────────────────────────────────────
+
+const PARLAY_STATUS_COLOR: Record<string, string> = {
+  awaiting_payment: '#3b82f6',
+  pending: '#f59e0b',
+  won:  colors.positive,
+  lost: colors.negative,
+  void: colors.textMuted,
+};
+
+const PARLAY_STATUS_BG: Record<string, string> = {
+  awaiting_payment: 'rgba(59,130,246,0.12)',
+  pending: 'rgba(245,158,11,0.12)',
+  won:  'rgba(34,197,94,0.12)',
+  lost: 'rgba(239,68,68,0.12)',
+  void: 'rgba(123,129,153,0.12)',
+};
+
+const ParlayCard = styled.div<{ status: string }>`
+  background-color: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-left: 3px solid ${({ status }) => PARLAY_STATUS_COLOR[status] ?? colors.border};
+
+  ${({ status }) =>
+    status !== 'pending' &&
+    css`background-color: ${PARLAY_STATUS_BG[status] ?? 'transparent'};`}
+`;
+
+const ParlayTopRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const ParlayStatusBadge = styled.span<{ status: string }>`
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: ${({ status }) => PARLAY_STATUS_COLOR[status] ?? colors.textMuted};
+  background-color: ${({ status }) => PARLAY_STATUS_BG[status] ?? 'transparent'};
+  border: 1px solid ${({ status }) => (PARLAY_STATUS_COLOR[status] ?? colors.textMuted) + '40'};
+  flex-shrink: 0;
+`;
+
+const ParlayLegsWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const ParlayLegRow = styled.div`
+  font-size: 12px;
+  color: ${colors.textMuted};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const ParlayLegLabel = styled.span`
+  color: ${colors.text};
+  font-weight: 500;
+`;
+
+const ParlayLegOdds = styled.span<{ positive: boolean }>`
+  font-size: 11px;
+  font-weight: 700;
+  color: ${({ positive }) => (positive ? colors.positive : colors.text)};
+`;
+
+const ParlayBottomRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid ${colors.border};
+`;
+
+const ParlayCardDisplay: React.FC<{ parlay: Parlay; gameMap: Record<string, Game> }> = ({ parlay, gameMap }) => {
+  const combinedOddsStr = parlay.combinedOdds > 0 ? `+${parlay.combinedOdds}` : `${parlay.combinedOdds}`;
+  const profit = parseFloat((parlay.payout - parlay.stake).toFixed(2));
+
+  return (
+    <ParlayCard status={parlay.status}>
+      <ParlayTopRow>
+        <ParlayStatusBadge status={parlay.status}>
+          {parlay.status === 'awaiting_payment' ? 'Awaiting Payment' : parlay.status}
+        </ParlayStatusBadge>
+        <span style={{ fontSize: 12, color: colors.textMuted }}>{parlay.legs.length}-Leg Parlay</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: parlay.combinedOdds > 0 ? colors.positive : colors.text }}>
+          {combinedOddsStr}
+        </span>
+      </ParlayTopRow>
+
+      <ParlayLegsWrap>
+        {parlay.legs.map((leg, i) => {
+          const game = gameMap[leg.gameId];
+          return (
+            <ParlayLegRow key={i}>
+              <span>•</span>
+              <ParlayLegLabel>{leg.label}</ParlayLegLabel>
+              <ParlayLegOdds positive={leg.odds > 0}>
+                {leg.odds > 0 ? `+${leg.odds}` : leg.odds}
+              </ParlayLegOdds>
+              {game && (
+                <span style={{ color: colors.textMuted }}>
+                  ({game.awayTeam} @ {game.homeTeam})
+                </span>
+              )}
+            </ParlayLegRow>
+          );
+        })}
+      </ParlayLegsWrap>
+
+      <ParlayBottomRow>
+        <AmountGroup>
+          <AmountLabel>Stake</AmountLabel>
+          <AmountValue>${formatMoney(parlay.stake)}</AmountValue>
+        </AmountGroup>
+        <AmountGroup>
+          <AmountLabel>To Win</AmountLabel>
+          <AmountValue
+            highlight={parlay.status === 'won' ? 'won' : parlay.status === 'lost' ? 'lost' : undefined}
+          >
+            {parlay.status === 'lost' ? '-' : '+'}${formatMoney(profit)}
+          </AmountValue>
+        </AmountGroup>
+        <AmountGroup>
+          <AmountLabel>Payout</AmountLabel>
+          <AmountValue
+            highlight={parlay.status === 'won' ? 'won' : undefined}
+          >
+            ${formatMoney(parlay.payout)}
+          </AmountValue>
+        </AmountGroup>
+        <PlacedAt>Placed {formatDate(parlay.placedAt)}</PlacedAt>
+      </ParlayBottomRow>
+    </ParlayCard>
+  );
+};
+
 // ─── Helpers for resolved card amounts ───────────────────────────────────────
 
 interface AmountRowProps {
@@ -413,8 +565,10 @@ const BetCardDisplay: React.FC<{ bet: Bet; gameMap: Record<string, Game> }> = ({
 const MyBets: React.FC = () => {
   const storedUser = localStorage.getItem('authedUser');
   const authedUser = storedUser ? JSON.parse(storedUser) : null;
-  const bets  = useBets(authedUser?.id ?? '');
-  const games = useGames([]);
+  const userId = authedUser?.id ?? '';
+  const bets    = useBets(userId);
+  const parlays = useParlays(userId);
+  const games   = useGames([]);
 
   const gameMap = React.useMemo(
     () => Object.fromEntries(games.map((g) => [g.id, g])),
@@ -466,12 +620,26 @@ const MyBets: React.FC = () => {
         </StatsRow>
       )}
 
-      {bets.length === 0 ? (
+      {/* ── My Parlays ────────────────────────────────────────────────────── */}
+      {parlays.length > 0 && (
+        <>
+          <SectionHeading>My Parlays</SectionHeading>
+          <BetList>
+            {[...parlays]
+              .sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime())
+              .map((parlay) => (
+                <ParlayCardDisplay key={parlay.id} parlay={parlay} gameMap={gameMap} />
+              ))}
+          </BetList>
+        </>
+      )}
+
+      {bets.length === 0 && parlays.length === 0 ? (
         <EmptyState>
           <EmptyTitle>No bets yet</EmptyTitle>
           <p>Head to <a href="/" style={{ color: colors.accent }}>Games</a> to place your first bet.</p>
         </EmptyState>
-      ) : (
+      ) : bets.length > 0 ? (
         <>
           {awaitingBets.length > 0 && (
             <>
@@ -509,7 +677,7 @@ const MyBets: React.FC = () => {
             </>
           )}
         </>
-      )}
+      ) : null}
     </Page>
   );
 };
