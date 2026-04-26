@@ -15,11 +15,18 @@ export interface LockedSides {
   away: boolean;
 }
 
-export type BetType = 'moneyline' | 'spread';
+export type BetType = 'moneyline' | 'spread' | 'special';
 
-export type BetSide = 'home' | 'away';
+export type BetSide = 'home' | 'away' | 'yes' | 'no';
 
 export type BetStatus = 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
+
+export interface Special {
+  id: string;
+  question: string; // e.g. "Paul knocks out James first round"
+  yesOdds: number;  // e.g. +200
+  noOdds: number;   // e.g. -250
+}
 
 export interface Bet {
   id: string;
@@ -29,6 +36,7 @@ export interface Bet {
   label: string;    // e.g. "Kansas City Chiefs -3.5"
   odds: number;     // e.g. -110 (the juice / price)
   line?: number;    // spread line at time of bet, e.g. -3.5 (spread bets only)
+  specialId?: string; // which special this bet is on (betType === 'special' only)
   stake: number;    // amount wagered (declared cash amount)
   payout: number;   // total payout on win (stake + profit)
   cashAmount: number; // cash the user declared they are handing over
@@ -73,4 +81,29 @@ export interface Game {
   bettingEnabled?: boolean; // undefined treated as true for backward compat
   betLimits?: BetLimits;
   lockedSides?: LockedSides;
+  specials?: Special[];
+}
+
+// ─── Parlays ──────────────────────────────────────────────────────────────────
+
+export interface ParlayLeg {
+  gameId: string;
+  betType: BetType;
+  side: BetSide;
+  label: string;
+  odds: number;       // American odds for this leg
+  line?: number;
+}
+
+export interface Parlay {
+  id: string;
+  userId: string;
+  userName: string;
+  legs: ParlayLeg[];
+  combinedOdds: number;  // American, already house-edge-adjusted
+  stake: number;
+  payout: number;
+  cashAmount: number;
+  status: 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
+  placedAt: string;      // ISO string
 }

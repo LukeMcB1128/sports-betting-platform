@@ -1,9 +1,10 @@
 import React from 'react';
 import styled, { css } from 'styled-components';
-import { Bet, BetStatus, Game } from '../types';
+import { Bet, BetStatus, Game, Parlay } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import useBets from '../hooks/useBets';
 import useGames from '../hooks/useGames';
+import useParlays from '../hooks/useParlays';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,15 @@ const formatDate = (iso: string) =>
   });
 
 const calcProfit = (bet: Bet) => parseFloat((bet.payout - bet.stake).toFixed(2));
+
+// ─── Unified item type ───────────────────────────────────────────────────────
+
+type UnifiedItem =
+  | { kind: 'bet'; data: Bet; placedAt: string }
+  | { kind: 'parlay'; data: Parlay; placedAt: string };
+
+const byDate = (a: UnifiedItem, b: UnifiedItem) =>
+  new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime();
 
 // ─── Status colours ──────────────────────────────────────────────────────────
 
@@ -274,13 +284,141 @@ const EmptyTitle = styled.p`
   margin-bottom: 8px;
 `;
 
-// ─── Helpers for resolved card amounts ───────────────────────────────────────
+// ─── Parlay card ─────────────────────────────────────────────────────────────
 
-interface AmountRowProps {
-  bet: Bet;
-}
+const ParlayCard = styled.div<{ status: string }>`
+  background-color: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-left: 3px solid ${({ status }) => STATUS_COLOR[status as BetStatus] ?? colors.border};
 
-const AmountRow: React.FC<AmountRowProps> = ({ bet }) => {
+  ${({ status }) =>
+    status !== 'pending' &&
+    css`background-color: ${STATUS_BG[status as BetStatus] ?? 'transparent'};`}
+`;
+
+const ParlayTopRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const ParlayStatusBadge = styled.span<{ status: string }>`
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: ${({ status }) => STATUS_COLOR[status as BetStatus] ?? colors.textMuted};
+  background-color: ${({ status }) => STATUS_BG[status as BetStatus] ?? 'transparent'};
+  border: 1px solid ${({ status }) => (STATUS_COLOR[status as BetStatus] ?? colors.textMuted) + '40'};
+  flex-shrink: 0;
+`;
+
+const ParlayLegsWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const ParlayLegRow = styled.div`
+  font-size: 12px;
+  color: ${colors.textMuted};
+  display: flex;
+  align-items: center;
+  gap: 6px;
+`;
+
+const ParlayLegLabel = styled.span`
+  color: ${colors.text};
+  font-weight: 500;
+`;
+
+const ParlayLegOdds = styled.span<{ positive: boolean }>`
+  font-size: 11px;
+  font-weight: 700;
+  color: ${({ positive }) => (positive ? colors.positive : colors.text)};
+`;
+
+const ParlayBottomRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid ${colors.border};
+`;
+
+const ParlayCardDisplay: React.FC<{ parlay: Parlay; gameMap: Record<string, Game> }> = ({ parlay, gameMap }) => {
+  const combinedOddsStr = parlay.combinedOdds > 0 ? `+${parlay.combinedOdds}` : `${parlay.combinedOdds}`;
+  const profit = parseFloat((parlay.payout - parlay.stake).toFixed(2));
+
+  return (
+    <ParlayCard status={parlay.status}>
+      <ParlayTopRow>
+        <ParlayStatusBadge status={parlay.status}>
+          {parlay.status === 'awaiting_payment' ? 'Awaiting Payment' : parlay.status}
+        </ParlayStatusBadge>
+        <MarketTag>Parlay</MarketTag>
+        <span style={{ fontSize: 12, color: colors.textMuted }}>{parlay.legs.length}-Leg</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: parlay.combinedOdds > 0 ? colors.positive : colors.text }}>
+          {combinedOddsStr}
+        </span>
+      </ParlayTopRow>
+
+      <ParlayLegsWrap>
+        {parlay.legs.map((leg, i) => {
+          const game = gameMap[leg.gameId];
+          return (
+            <ParlayLegRow key={i}>
+              <span>•</span>
+              <ParlayLegLabel>{leg.label}</ParlayLegLabel>
+              <ParlayLegOdds positive={leg.odds > 0}>
+                {leg.odds > 0 ? `+${leg.odds}` : leg.odds}
+              </ParlayLegOdds>
+              {game && (
+                <span style={{ color: colors.textMuted }}>
+                  ({game.awayTeam} @ {game.homeTeam})
+                </span>
+              )}
+            </ParlayLegRow>
+          );
+        })}
+      </ParlayLegsWrap>
+
+      <ParlayBottomRow>
+        <AmountGroup>
+          <AmountLabel>Stake</AmountLabel>
+          <AmountValue>${formatMoney(parlay.stake)}</AmountValue>
+        </AmountGroup>
+        <AmountGroup>
+          <AmountLabel>To Win</AmountLabel>
+          <AmountValue highlight={parlay.status === 'won' ? 'won' : parlay.status === 'lost' ? 'lost' : undefined}>
+            {parlay.status === 'lost' ? '-' : '+'}${formatMoney(profit)}
+          </AmountValue>
+        </AmountGroup>
+        <AmountGroup>
+          <AmountLabel>Payout</AmountLabel>
+          <AmountValue highlight={parlay.status === 'won' ? 'won' : undefined}>
+            ${formatMoney(parlay.payout)}
+          </AmountValue>
+        </AmountGroup>
+        <PlacedAt>Placed {formatDate(parlay.placedAt)}</PlacedAt>
+      </ParlayBottomRow>
+    </ParlayCard>
+  );
+};
+
+// ─── Bet amount row ───────────────────────────────────────────────────────────
+
+const AmountRow: React.FC<{ bet: Bet }> = ({ bet }) => {
   const profit = calcProfit(bet);
 
   if (bet.status === 'won') {
@@ -319,12 +457,10 @@ const AmountRow: React.FC<AmountRowProps> = ({ bet }) => {
 
   if (bet.status === 'void') {
     return (
-      <>
-        <AmountGroup>
-          <AmountLabel>Stake Refunded</AmountLabel>
-          <AmountValue highlight="void">${formatMoney(bet.stake)}</AmountValue>
-        </AmountGroup>
-      </>
+      <AmountGroup>
+        <AmountLabel>Stake Refunded</AmountLabel>
+        <AmountValue highlight="void">${formatMoney(bet.stake)}</AmountValue>
+      </AmountGroup>
     );
   }
 
@@ -366,7 +502,7 @@ const AmountRow: React.FC<AmountRowProps> = ({ bet }) => {
   );
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Bet card ─────────────────────────────────────────────────────────────────
 
 const BetCardDisplay: React.FC<{ bet: Bet; gameMap: Record<string, Game> }> = ({ bet, gameMap }) => {
   const game = gameMap[bet.gameId] as Game | undefined;
@@ -410,51 +546,90 @@ const BetCardDisplay: React.FC<{ bet: Bet; gameMap: Record<string, Game> }> = ({
   );
 };
 
+// ─── Page component ───────────────────────────────────────────────────────────
+
 const MyBets: React.FC = () => {
   const storedUser = localStorage.getItem('authedUser');
   const authedUser = storedUser ? JSON.parse(storedUser) : null;
-  const bets  = useBets(authedUser?.id ?? '');
-  const games = useGames([]);
+  const userId = authedUser?.id ?? '';
+  const bets    = useBets(userId);
+  const parlays = useParlays(userId);
+  const games   = useGames([]);
 
   const gameMap = React.useMemo(
     () => Object.fromEntries(games.map((g) => [g.id, g])),
     [games],
   );
 
-  const awaitingBets = bets.filter((b) => b.status === 'awaiting_payment');
-  const activeBets   = bets.filter((b) => b.status === 'pending');
-  const wonBets      = bets.filter((b) => b.status === 'won');
-  const lostBets     = bets.filter((b) => b.status === 'lost');
-  const settledBets  = bets.filter((b) => b.status === 'won' || b.status === 'lost' || b.status === 'void');
+  // ── Stats — combined bets + parlays ──────────────────────────────────────────
 
-  const totalWon     = wonBets.reduce((s, b) => s + b.payout, 0);
-  const totalLost    = lostBets.reduce((s, b) => s + b.stake, 0);
-  const netPL        = parseFloat((totalWon - totalLost).toFixed(2));
-  const netPLColor   = netPL > 0 ? colors.positive : netPL < 0 ? colors.negative : colors.text;
+  const awaitingBets    = bets.filter((b) => b.status === 'awaiting_payment');
+  const awaitingParlays = parlays.filter((p) => p.status === 'awaiting_payment');
+  const activeBets      = bets.filter((b) => b.status === 'pending');
+  const activeParlays   = parlays.filter((p) => p.status === 'pending');
+  const wonBets         = bets.filter((b) => b.status === 'won');
+  const wonParlays      = parlays.filter((p) => p.status === 'won');
+  const lostBets        = bets.filter((b) => b.status === 'lost');
+  const lostParlays     = parlays.filter((p) => p.status === 'lost');
+  const settledBets     = bets.filter((b) => ['won', 'lost', 'void'].includes(b.status));
+  const settledParlays  = parlays.filter((p) => ['won', 'lost', 'void'].includes(p.status));
 
-  const byRecent = (a: Bet, b: Bet) =>
-    new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime();
+  const awaitingCount = awaitingBets.length + awaitingParlays.length;
+  const activeCount   = activeBets.length + activeParlays.length;
+  const wonCount      = wonBets.length + wonParlays.length;
+  const lostCount     = lostBets.length + lostParlays.length;
+
+  const totalWon  = wonBets.reduce((s, b) => s + b.payout, 0)
+                  + wonParlays.reduce((s, p) => s + p.payout, 0);
+  const totalLost = lostBets.reduce((s, b) => s + b.stake, 0)
+                  + lostParlays.reduce((s, p) => s + p.stake, 0);
+  const netPL      = parseFloat((totalWon - totalLost).toFixed(2));
+  const netPLColor = netPL > 0 ? colors.positive : netPL < 0 ? colors.negative : colors.text;
+
+  // ── Unified sections ──────────────────────────────────────────────────────────
+
+  const awaitingItems: UnifiedItem[] = [
+    ...awaitingBets.map((d) => ({ kind: 'bet' as const, data: d, placedAt: d.placedAt })),
+    ...awaitingParlays.map((d) => ({ kind: 'parlay' as const, data: d, placedAt: d.placedAt })),
+  ].sort(byDate);
+
+  const activeItems: UnifiedItem[] = [
+    ...activeBets.map((d) => ({ kind: 'bet' as const, data: d, placedAt: d.placedAt })),
+    ...activeParlays.map((d) => ({ kind: 'parlay' as const, data: d, placedAt: d.placedAt })),
+  ].sort(byDate);
+
+  const settledItems: UnifiedItem[] = [
+    ...settledBets.map((d) => ({ kind: 'bet' as const, data: d, placedAt: d.placedAt })),
+    ...settledParlays.map((d) => ({ kind: 'parlay' as const, data: d, placedAt: d.placedAt })),
+  ].sort(byDate);
+
+  const hasAny = bets.length > 0 || parlays.length > 0;
+
+  const renderItem = (item: UnifiedItem) =>
+    item.kind === 'bet'
+      ? <BetCardDisplay key={item.data.id} bet={item.data} gameMap={gameMap} />
+      : <ParlayCardDisplay key={item.data.id} parlay={item.data} gameMap={gameMap} />;
 
   return (
     <Page>
       <PageTitle>My Bets</PageTitle>
 
-      {bets.length > 0 && (
+      {hasAny && (
         <StatsRow>
           <StatCard>
-            <StatValue color="#3b82f6">{awaitingBets.length}</StatValue>
+            <StatValue color="#3b82f6">{awaitingCount}</StatValue>
             <StatLabel>Awaiting Payment</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue color="#f59e0b">{activeBets.length}</StatValue>
+            <StatValue color="#f59e0b">{activeCount}</StatValue>
             <StatLabel>Active</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue color={colors.negative}>{lostBets.length}</StatValue>
+            <StatValue color={colors.negative}>{lostCount}</StatValue>
             <StatLabel>Lost</StatLabel>
           </StatCard>
           <StatCard>
-            <StatValue color={colors.positive}>{wonBets.length}</StatValue>
+            <StatValue color={colors.positive}>{wonCount}</StatValue>
             <StatLabel>Won</StatLabel>
           </StatCard>
           <StatCard>
@@ -466,46 +641,34 @@ const MyBets: React.FC = () => {
         </StatsRow>
       )}
 
-      {bets.length === 0 ? (
+      {!hasAny ? (
         <EmptyState>
           <EmptyTitle>No bets yet</EmptyTitle>
           <p>Head to <a href="/" style={{ color: colors.accent }}>Games</a> to place your first bet.</p>
         </EmptyState>
       ) : (
         <>
-          {awaitingBets.length > 0 && (
+          {awaitingItems.length > 0 && (
             <>
               <SectionHeading>Awaiting Payment</SectionHeading>
               <AwaitingBanner>
                 Give cash to Luke Puthoff or Venmo @Luke-Puthoff-1 to pay your bet.
               </AwaitingBanner>
-              <BetList>
-                {[...awaitingBets].sort(byRecent).map((bet) => (
-                  <BetCardDisplay key={bet.id} bet={bet} gameMap={gameMap} />
-                ))}
-              </BetList>
+              <BetList>{awaitingItems.map(renderItem)}</BetList>
             </>
           )}
 
-          {activeBets.length > 0 && (
+          {activeItems.length > 0 && (
             <>
               <SectionHeading>Active Bets</SectionHeading>
-              <BetList>
-                {[...activeBets].sort(byRecent).map((bet) => (
-                  <BetCardDisplay key={bet.id} bet={bet} gameMap={gameMap} />
-                ))}
-              </BetList>
+              <BetList>{activeItems.map(renderItem)}</BetList>
             </>
           )}
 
-          {settledBets.length > 0 && (
+          {settledItems.length > 0 && (
             <>
               <SectionHeading>Settled</SectionHeading>
-              <BetList>
-                {[...settledBets].sort(byRecent).map((bet) => (
-                  <BetCardDisplay key={bet.id} bet={bet} gameMap={gameMap} />
-                ))}
-              </BetList>
+              <BetList>{settledItems.map(renderItem)}</BetList>
             </>
           )}
         </>

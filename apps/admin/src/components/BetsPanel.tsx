@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Bet, Game, BetStatus } from '../types';
+import { Bet, Parlay, Game, BetStatus } from '../types';
 import { colors } from '../styles/GlobalStyles';
-import { fetchBets, deleteBet, confirmPayment } from '../api/betsApi';
+import { fetchBets, deleteBet, confirmPayment, settleBet } from '../api/betsApi';
+import { fetchParlays, confirmParlayPayment, settleParlay, deleteParlay } from '../api/parlaysApi';
 import { fetchGames } from '../api/gamesApi';
 
 const POLL_INTERVAL_MS = 5000;
@@ -14,6 +15,10 @@ const formatMoney = (n: number) =>
   '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+// ─── Unified item type ────────────────────────────────────────────────────────
+
+type BetItem = { kind: 'bet'; data: Bet } | { kind: 'parlay'; data: Parlay };
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
@@ -90,7 +95,7 @@ const TableWrap = styled.div`
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
-  min-width: 780px;
+  min-width: 820px;
 `;
 
 const Th = styled.th`
@@ -167,6 +172,26 @@ const MarketLabel = styled.span`
   font-weight: 500;
 `;
 
+const LegList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 240px;
+`;
+
+const LegItem = styled.div`
+  font-size: 12px;
+  color: ${colors.textMuted};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const LegLabel = styled.span`
+  color: ${colors.text};
+  font-weight: 500;
+`;
+
 const MonoValue = styled.span`
   font-feature-settings: 'tnum';
   color: ${colors.text};
@@ -184,14 +209,8 @@ const RemoveButton = styled.button`
   transition: background-color 0.15s, opacity 0.15s;
   white-space: nowrap;
 
-  &:hover:not(:disabled) {
-    background-color: ${colors.danger}18;
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+  &:hover:not(:disabled) { background-color: ${colors.danger}18; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
 
 const ConfirmButton = styled.button`
@@ -206,16 +225,37 @@ const ConfirmButton = styled.button`
   transition: background-color 0.15s, opacity 0.15s;
   white-space: nowrap;
 
-  &:hover:not(:disabled) {
-    background-color: #3b82f618;
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+  &:hover:not(:disabled) { background-color: #3b82f618; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
 
+const SettleButton = styled.button<{ variant: 'won' | 'lost' | 'void' }>`
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  background-color: transparent;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+
+  color: ${({ variant }) =>
+    variant === 'won'  ? colors.success :
+    variant === 'lost' ? colors.danger  : colors.textMuted};
+  border: 1px solid ${({ variant }) =>
+    variant === 'won'  ? `${colors.success}60` :
+    variant === 'lost' ? `${colors.danger}60`  : `${colors.textMuted}60`};
+
+  &:hover:not(:disabled) {
+    background-color: ${({ variant }) =>
+      variant === 'won'  ? `${colors.success}18` :
+      variant === 'lost' ? `${colors.danger}18`  : `${colors.textMuted}18`};
+  }
+
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+`;
 
 const EmptyCell = styled.td`
   padding: 40px 14px;
@@ -243,21 +283,32 @@ interface BetsPanelProps {
 }
 
 const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
-  const [bets, setBets] = useState<Bet[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
+  const [bets, setBets]       = useState<Bet[]>([]);
+  const [parlays, setParlays] = useState<Parlay[]>([]);
+  const [games, setGames]     = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<Set<string>>(new Set());
-  const [confirming, setConfirming] = useState<Set<string>>(new Set());
+  const [error, setError]     = useState<string | null>(null);
+
+  const [removingBets, setRemovingBets]       = useState<Set<string>>(new Set());
+  const [confirmingBets, setConfirmingBets]   = useState<Set<string>>(new Set());
+  const [settlingBets, setSettlingBets]       = useState<Set<string>>(new Set());
+  const [removingParlays, setRemovingParlays] = useState<Set<string>>(new Set());
+  const [confirmingParlays, setConfirmingParlays] = useState<Set<string>>(new Set());
+  const [settlingParlays, setSettlingParlays]     = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       try {
-        const [fetchedBets, fetchedGames] = await Promise.all([fetchBets(adminToken), fetchGames()]);
+        const [fetchedBets, fetchedParlays, fetchedGames] = await Promise.all([
+          fetchBets(adminToken),
+          fetchParlays(adminToken),
+          fetchGames(),
+        ]);
         if (!cancelled) {
           setBets(fetchedBets);
+          setParlays(fetchedParlays);
           setGames(fetchedGames);
           setError(null);
         }
@@ -282,66 +333,101 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
 
   const gameMap = Object.fromEntries(games.map((g) => [g.id, g]));
 
-  const handleRemove = async (id: string) => {
-    setRemoving((prev) => new Set(prev).add(id));
+  // ── Bet handlers ──────────────────────────────────────────────────────────────
+
+  const handleRemoveBet = async (id: string) => {
+    setRemovingBets((prev) => new Set(prev).add(id));
     try {
       await deleteBet(id);
       setBets((prev) => prev.filter((b) => b.id !== id));
-    } catch {
-      // silently ignore — bet will reappear on next poll if delete failed
-    } finally {
-      setRemoving((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    } catch { /* reconcile on next poll */ }
+    finally {
+      setRemovingBets((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
-  const handleConfirmPayment = async (id: string) => {
-    setConfirming((prev) => new Set(prev).add(id));
+  const handleConfirmBetPayment = async (id: string) => {
+    setConfirmingBets((prev) => new Set(prev).add(id));
     try {
       const updated = await confirmPayment(id, adminToken);
       setBets((prev) => prev.map((b) => (b.id === id ? updated : b)));
-    } catch {
-      // silently ignore — state will reconcile on next poll
-    } finally {
-      setConfirming((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    } catch { /* reconcile on next poll */ }
+    finally {
+      setConfirmingBets((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
-  // Stats
-  const awaitingBets = bets.filter((b) => b.status === 'awaiting_payment');
-  const activeBets   = bets.filter((b) => b.status === 'pending');
-  const totalStaked = bets.filter((b) => b.status !== 'awaiting_payment').reduce((s, b) => s + b.stake, 0);
-  const currStaked = activeBets.reduce((s, b) => s + b.stake, 0);
-  const pendingCount = activeBets.length;
-  const awaitingCount = awaitingBets.length;
-  const lossCount = bets.filter((b) => b.status === 'lost').length;
-  const wonCount = bets.filter((b) => b.status === 'won').length;
-  const potentialPayout = activeBets.reduce((s, b) => s + b.payout, 0);
-  const totalWon = bets.filter((b) => b.status === 'won').reduce((s, b) => s + b.payout, 0);
+  const handleSettleBet = async (id: string, outcome: 'won' | 'lost' | 'void') => {
+    setSettlingBets((prev) => new Set(prev).add(id));
+    try {
+      const updated = await settleBet(id, outcome, adminToken);
+      setBets((prev) => prev.map((b) => (b.id === id ? updated : b)));
+    } catch { /* reconcile on next poll */ }
+    finally {
+      setSettlingBets((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  };
 
-  // Sort: awaiting_payment first, then pending, then settled — newest within each group
+  // ── Parlay handlers ───────────────────────────────────────────────────────────
+
+  const handleRemoveParlay = async (id: string) => {
+    setRemovingParlays((prev) => new Set(prev).add(id));
+    try {
+      await deleteParlay(id, adminToken);
+      setParlays((prev) => prev.filter((p) => p.id !== id));
+    } catch { /* reconcile on next poll */ }
+    finally {
+      setRemovingParlays((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  };
+
+  const handleConfirmParlayPayment = async (id: string) => {
+    setConfirmingParlays((prev) => new Set(prev).add(id));
+    try {
+      const updated = await confirmParlayPayment(id, adminToken);
+      setParlays((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    } catch { /* reconcile on next poll */ }
+    finally {
+      setConfirmingParlays((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  };
+
+  const handleSettleParlay = async (id: string, outcome: 'won' | 'lost' | 'void') => {
+    setSettlingParlays((prev) => new Set(prev).add(id));
+    try {
+      const updated = await settleParlay(id, outcome, adminToken);
+      setParlays((prev) => prev.map((p) => (p.id === id ? updated : p)));
+    } catch { /* reconcile on next poll */ }
+    finally {
+      setSettlingParlays((prev) => { const next = new Set(prev); next.delete(id); return next; });
+    }
+  };
+
+  // ── Stats (combined) ──────────────────────────────────────────────────────────
+
+  const allItems: BetItem[] = [
+    ...bets.map((d) => ({ kind: 'bet' as const, data: d })),
+    ...parlays.map((d) => ({ kind: 'parlay' as const, data: d })),
+  ];
+
+  const awaitingCount   = allItems.filter((i) => i.data.status === 'awaiting_payment').length;
+  const pendingCount    = allItems.filter((i) => i.data.status === 'pending').length;
+  const lossCount       = allItems.filter((i) => i.data.status === 'lost').length;
+  const wonCount        = allItems.filter((i) => i.data.status === 'won').length;
+  const currStaked      = allItems.filter((i) => i.data.status === 'pending').reduce((s, i) => s + i.data.stake, 0);
+  const potentialPayout = allItems.filter((i) => i.data.status === 'pending').reduce((s, i) => s + i.data.payout, 0);
+  const totalStaked     = allItems.filter((i) => i.data.status !== 'awaiting_payment').reduce((s, i) => s + i.data.stake, 0);
+  const totalWon        = allItems.filter((i) => i.data.status === 'won').reduce((s, i) => s + i.data.payout, 0);
+
+  // ── Sort: awaiting first, then pending, then settled — newest within group ────
+
   const STATUS_ORDER: Record<BetStatus, number> = { awaiting_payment: 0, pending: 1, won: 2, lost: 3, void: 4 };
-  const sortedBets = [...bets].sort((a, b) => {
-    if (STATUS_ORDER[a.status] !== STATUS_ORDER[b.status]) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
-    return new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime();
+  const sortedItems = [...allItems].sort((a, b) => {
+    if (STATUS_ORDER[a.data.status] !== STATUS_ORDER[b.data.status]) {
+      return STATUS_ORDER[a.data.status] - STATUS_ORDER[b.data.status];
+    }
+    return new Date(b.data.placedAt).getTime() - new Date(a.data.placedAt).getTime();
   });
-
-  const header = (
-    <thead>
-      <tr>
-        <Th>Placed</Th>
-        <Th>User</Th>
-        <Th>Game</Th>
-        <Th>Market</Th>
-        <Th>Odds</Th>
-        <Th>Bet</Th>
-        <Th>Cash</Th>
-        <Th>To Win</Th>
-        <Th>Payout</Th>
-        <Th>Status</Th>
-        <Th>Actions</Th>
-      </tr>
-    </thead>
-  );
 
   return (
     <div>
@@ -391,95 +477,169 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
 
       <TableWrap>
         <Table>
-          {header}
+          <thead>
+            <tr>
+              <Th>Placed</Th>
+              <Th>User</Th>
+              <Th>Game / Legs</Th>
+              <Th>Market</Th>
+              <Th>Odds</Th>
+              <Th>Bet</Th>
+              <Th>Cash</Th>
+              <Th>To Win</Th>
+              <Th>Payout</Th>
+              <Th>Status</Th>
+              <Th>Actions</Th>
+            </tr>
+          </thead>
           <tbody>
-            {bets.length === 0 && !loading ? (
+            {allItems.length === 0 && !loading ? (
               <tr>
                 <EmptyCell colSpan={COLS}>No bets placed yet.</EmptyCell>
               </tr>
             ) : (
-              sortedBets.map((bet) => {
-                const game = gameMap[bet.gameId] as Game | undefined;
-                const profit = parseFloat((bet.payout - bet.stake).toFixed(2));
+              sortedItems.map((item) => {
+                if (item.kind === 'bet') {
+                  const bet = item.data;
+                  const game = gameMap[bet.gameId] as Game | undefined;
+                  const profit = parseFloat((bet.payout - bet.stake).toFixed(2));
+
+                  return (
+                    <Tr key={`bet-${bet.id}`} highlight={bet.status === 'awaiting_payment'}>
+                      <Td style={{ whiteSpace: 'nowrap', color: colors.textMuted, fontSize: 12 }}>
+                        {formatDate(bet.placedAt)}
+                      </Td>
+                      <Td style={{ fontSize: 12, color: colors.text }}>{bet.userName ?? '-'}</Td>
+                      <Td>
+                        {game ? (
+                          <Matchup>
+                            <TeamLine>{game.awayTeam} @ {game.homeTeam}</TeamLine>
+                            <LeagueBadge>{game.league}</LeagueBadge>
+                          </Matchup>
+                        ) : (
+                          <span style={{ color: colors.textMuted, fontSize: 12 }}>Game not found</span>
+                        )}
+                      </Td>
+                      <Td>
+                        <MarketCell>
+                          <MarketType>{bet.betType}</MarketType>
+                          <MarketLabel>{bet.label}</MarketLabel>
+                        </MarketCell>
+                      </Td>
+                      <Td>
+                        <MonoValue style={{ color: bet.odds > 0 ? colors.success : colors.text, fontWeight: 700 }}>
+                          {formatOdds(bet.odds)}
+                        </MonoValue>
+                      </Td>
+                      <Td><MonoValue>{formatMoney(bet.stake)}</MonoValue></Td>
+                      <Td>
+                        <MonoValue style={{ color: bet.cashAmount ? colors.text : colors.textMuted }}>
+                          {bet.cashAmount ? formatMoney(bet.cashAmount) : '—'}
+                        </MonoValue>
+                      </Td>
+                      <Td><MonoValue>{formatMoney(profit)}</MonoValue></Td>
+                      <Td><MonoValue>{formatMoney(bet.payout)}</MonoValue></Td>
+                      <Td>
+                        <StatusBadge status={bet.status}>
+                          {bet.status === 'awaiting_payment' ? 'Awaiting' : bet.status}
+                        </StatusBadge>
+                      </Td>
+                      <Td>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {bet.status === 'awaiting_payment' && (
+                            <ConfirmButton
+                              onClick={() => handleConfirmBetPayment(bet.id)}
+                              disabled={confirmingBets.has(bet.id)}
+                            >
+                              {confirmingBets.has(bet.id) ? 'Confirming…' : 'Mark as Paid'}
+                            </ConfirmButton>
+                          )}
+                          {bet.status === 'pending' && (
+                            <>
+                              <SettleButton variant="won" onClick={() => handleSettleBet(bet.id, 'won')} disabled={settlingBets.has(bet.id)}>Won</SettleButton>
+                              <SettleButton variant="lost" onClick={() => handleSettleBet(bet.id, 'lost')} disabled={settlingBets.has(bet.id)}>Lost</SettleButton>
+                              <SettleButton variant="void" onClick={() => handleSettleBet(bet.id, 'void')} disabled={settlingBets.has(bet.id)}>Void</SettleButton>
+                            </>
+                          )}
+                          <RemoveButton onClick={() => handleRemoveBet(bet.id)} disabled={removingBets.has(bet.id)}>
+                            {removingBets.has(bet.id) ? 'Removing…' : 'Remove'}
+                          </RemoveButton>
+                        </div>
+                      </Td>
+                    </Tr>
+                  );
+                }
+
+                // parlay row
+                const parlay = item.data;
+                const profit = parseFloat((parlay.payout - parlay.stake).toFixed(2));
 
                 return (
-                  <Tr key={bet.id} highlight={bet.status === 'awaiting_payment'}>
-                    {/* Placed */}
+                  <Tr key={`parlay-${parlay.id}`} highlight={parlay.status === 'awaiting_payment'}>
                     <Td style={{ whiteSpace: 'nowrap', color: colors.textMuted, fontSize: 12 }}>
-                      {formatDate(bet.placedAt)}
+                      {formatDate(parlay.placedAt)}
                     </Td>
-
-                    {/* User */}
-                    <Td style={{fontSize: 12, color: colors.text}}>
-                      {bet.userName ?? '-'}
-                    </Td>
-
-                    {/* Game */}
+                    <Td style={{ fontSize: 12, color: colors.text }}>{parlay.userName ?? '-'}</Td>
                     <Td>
-                      {game ? (
-                        <Matchup>
-                          <TeamLine>{game.awayTeam} @ {game.homeTeam}</TeamLine>
-                          <LeagueBadge>{game.league}</LeagueBadge>
-                        </Matchup>
-                      ) : (
-                        <span style={{ color: colors.textMuted, fontSize: 12 }}>Game not found</span>
-                      )}
+                      <LegList>
+                        {parlay.legs.map((leg, i) => {
+                          const game = gameMap[leg.gameId] as Game | undefined;
+                          return (
+                            <LegItem key={i} title={`${leg.label} (${leg.betType})`}>
+                              <LegLabel>{leg.label}</LegLabel>
+                              {' '}
+                              <span style={{ fontSize: 11, color: colors.textMuted }}>
+                                {formatOdds(leg.odds)}
+                                {game ? ` · ${game.awayTeam} @ ${game.homeTeam}` : ''}
+                              </span>
+                            </LegItem>
+                          );
+                        })}
+                      </LegList>
                     </Td>
-
-                    {/* Market */}
                     <Td>
                       <MarketCell>
-                        <MarketType>{bet.betType}</MarketType>
-                        <MarketLabel>{bet.label}</MarketLabel>
+                        <MarketType>Parlay</MarketType>
+                        <MarketLabel>{parlay.legs.length}-Leg</MarketLabel>
                       </MarketCell>
                     </Td>
-
-                    {/* Odds */}
                     <Td>
-                      <MonoValue style={{ color: bet.odds > 0 ? colors.success : colors.text, fontWeight: 700 }}>
-                        {formatOdds(bet.odds)}
+                      <MonoValue style={{ color: parlay.combinedOdds > 0 ? colors.success : colors.text, fontWeight: 700 }}>
+                        {formatOdds(parlay.combinedOdds)}
                       </MonoValue>
                     </Td>
-
-                    {/* Bet */}
-                    <Td><MonoValue>{formatMoney(bet.stake)}</MonoValue></Td>
-
-                    {/* Cash */}
+                    <Td><MonoValue>{formatMoney(parlay.stake)}</MonoValue></Td>
                     <Td>
-                      <MonoValue style={{ color: bet.cashAmount ? colors.text : colors.textMuted }}>
-                        {bet.cashAmount ? formatMoney(bet.cashAmount) : '—'}
+                      <MonoValue style={{ color: parlay.cashAmount ? colors.text : colors.textMuted }}>
+                        {parlay.cashAmount ? formatMoney(parlay.cashAmount) : '—'}
                       </MonoValue>
                     </Td>
-
-                    {/* To Win */}
                     <Td><MonoValue>{formatMoney(profit)}</MonoValue></Td>
-
-                    {/* Payout */}
-                    <Td><MonoValue>{formatMoney(bet.payout)}</MonoValue></Td>
-
-                    {/* Status */}
+                    <Td><MonoValue>{formatMoney(parlay.payout)}</MonoValue></Td>
                     <Td>
-                      <StatusBadge status={bet.status}>
-                        {bet.status === 'awaiting_payment' ? 'Awaiting' : bet.status}
+                      <StatusBadge status={parlay.status}>
+                        {parlay.status === 'awaiting_payment' ? 'Awaiting' : parlay.status}
                       </StatusBadge>
                     </Td>
-
-                    {/* Actions */}
                     <Td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {bet.status === 'awaiting_payment' && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {parlay.status === 'awaiting_payment' && (
                           <ConfirmButton
-                            onClick={() => handleConfirmPayment(bet.id)}
-                            disabled={confirming.has(bet.id)}
+                            onClick={() => handleConfirmParlayPayment(parlay.id)}
+                            disabled={confirmingParlays.has(parlay.id)}
                           >
-                            {confirming.has(bet.id) ? 'Confirming…' : 'Mark as Paid'}
+                            {confirmingParlays.has(parlay.id) ? 'Confirming…' : 'Mark as Paid'}
                           </ConfirmButton>
                         )}
-                        <RemoveButton
-                          onClick={() => handleRemove(bet.id)}
-                          disabled={removing.has(bet.id)}
-                        >
-                          {removing.has(bet.id) ? 'Removing…' : 'Remove'}
+                        {parlay.status === 'pending' && (
+                          <>
+                            <SettleButton variant="won" onClick={() => handleSettleParlay(parlay.id, 'won')} disabled={settlingParlays.has(parlay.id)}>Won</SettleButton>
+                            <SettleButton variant="lost" onClick={() => handleSettleParlay(parlay.id, 'lost')} disabled={settlingParlays.has(parlay.id)}>Lost</SettleButton>
+                            <SettleButton variant="void" onClick={() => handleSettleParlay(parlay.id, 'void')} disabled={settlingParlays.has(parlay.id)}>Void</SettleButton>
+                          </>
+                        )}
+                        <RemoveButton onClick={() => handleRemoveParlay(parlay.id)} disabled={removingParlays.has(parlay.id)}>
+                          {removingParlays.has(parlay.id) ? 'Removing…' : 'Remove'}
                         </RemoveButton>
                       </div>
                     </Td>

@@ -10,7 +10,8 @@ interface BetSlipPanelProps {
   side: BetSide;
   label: string;
   odds: number;
-  line?: number; // spread line at time of selection (spread bets only)
+  line?: number;      // spread line at time of selection (spread bets only)
+  specialId?: string; // which special (betType === 'special' only)
   maxStake?: number;
   userId: string;
   userName: string;
@@ -210,7 +211,7 @@ const formatMoney = (n: number): string =>
   n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
-  gameId, betType, side, label, odds, line, maxStake, userId, userName, onClose, onSuccess,
+  gameId, betType, side, label, odds, line, specialId, maxStake, userId, userName, onClose, onSuccess,
 }) => {
   const [stakeStr, setStakeStr] = useState('');
   const [loading, setLoading] = useState(false);
@@ -236,7 +237,7 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
     setError(null);
     try {
       // cashAmount equals stake — the bet amount is what the user pays in cash
-      await placeBet({ gameId, betType, side, label, odds, line, stake, cashAmount: stake, userId, userName });
+      await placeBet({ gameId, betType, side, label, odds, line, specialId, stake, cashAmount: stake, userId, userName });
       setSuccess(true);
       setTimeout(() => {
         onSuccess();
