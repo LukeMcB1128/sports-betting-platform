@@ -17,8 +17,8 @@ const toAmerican = (decimal: number): number =>
 const calcCombinedOdds = (legs: { odds: number }[]): number => {
   if (legs.length === 0) return 0;
   const rawDecimal = legs.reduce((acc, leg) => acc * toDecimal(leg.odds), 1);
-  // House edge: 30% profit reduction for 3+ legs
-  const reduction = legs.length >= 3 ? 0.30 : 0;
+  // House edge: 30% profit reduction for 2+ legs
+  const reduction = legs.length >= 2 ? 0.30 : 0;
   const adjustedDecimal = 1 + (rawDecimal - 1) * (1 - reduction);
   return toAmerican(adjustedDecimal);
 };

@@ -4,7 +4,6 @@ import { Game, GameStatus, GameOdds, BetLimits, LockedSides, Special } from '../
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import BetsPanel from '../components/BetsPanel';
-import ParlaysPanel from '../components/ParlaysPanel';
 import UsersPanel from '../components/UsersPanel';
 import AddGameModal from '../components/AddGameModal';
 import AdvancedGameModal from '../components/AdvancedGameModal';
@@ -25,7 +24,7 @@ import {
   voidAllBets,
 } from '../api/gamesApi';
 
-type ActiveTab = 'games' | 'bets' | 'parlays' | 'users';
+type ActiveTab = 'games' | 'bets' | 'users';
 
 const Page = styled.main`
   max-width: 1100px;
@@ -215,7 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
     <Page>
       <PageHeader>
         <PageTitle>
-          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : activeTab === 'parlays' ? 'Parlays' : 'Users'}
+          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : 'Users'}
         </PageTitle>
         {activeTab === 'games' && (
           <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
@@ -231,9 +230,6 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         </Tab>
         <Tab active={activeTab === 'bets'} onClick={() => setActiveTab('bets')}>
           Bets
-        </Tab>
-        <Tab active={activeTab === 'parlays'} onClick={() => setActiveTab('parlays')}>
-          Parlays
         </Tab>
         <Tab active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
           Users
@@ -285,9 +281,6 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
 
       {/* ── Bets tab ──────────────────────────────────────────────────────── */}
       {activeTab === 'bets' && <BetsPanel adminToken={adminToken} />}
-
-      {/* ── Parlays tab ───────────────────────────────────────────────────── */}
-      {activeTab === 'parlays' && <ParlaysPanel adminToken={adminToken} />}
 
       {/* ── Users tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'users' && <UsersPanel adminToken={adminToken} />}
