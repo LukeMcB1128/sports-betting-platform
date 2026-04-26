@@ -593,7 +593,7 @@ const MyBets: React.FC = () => {
     <Page>
       <PageTitle>My Bets</PageTitle>
 
-      {bets.length > 0 && (
+      {bets.length > 0 || parlays.length > 0 && (
         <StatsRow>
           <StatCard>
             <StatValue color="#3b82f6">{awaitingBets.length}</StatValue>

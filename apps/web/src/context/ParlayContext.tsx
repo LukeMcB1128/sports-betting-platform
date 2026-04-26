@@ -42,7 +42,7 @@ export const ParlayProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setLegs((prev) => {
       // Replace if same game+type+side already present
       const filtered = prev.filter(
-        (l) => !(l.gameId === leg.gameId && l.betType === leg.betType && l.side === leg.side)
+        (l) => !(l.gameId === leg.gameId && l.betType === leg.betType)
       );
       return [...filtered, leg];
     });
