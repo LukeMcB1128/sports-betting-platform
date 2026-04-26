@@ -27,3 +27,24 @@ export const confirmPayment = async (id: string, adminToken: string): Promise<Be
   const data = await res.json();
   return data.bet;
 };
+
+export const settleBet = async (
+  id: string,
+  outcome: 'won' | 'lost' | 'void',
+  adminToken: string,
+): Promise<Bet> => {
+  const res = await fetch(`${API_BASE}/bets/${id}/settle`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Admin-Token': adminToken,
+    },
+    body: JSON.stringify({ outcome }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(err.error ?? 'Failed to settle bet');
+  }
+  const data = await res.json();
+  return data.bet;
+};
