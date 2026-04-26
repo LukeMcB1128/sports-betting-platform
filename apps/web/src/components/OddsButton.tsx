@@ -8,19 +8,20 @@ interface OddsButtonProps {
   selected?: boolean;
   onSelect?: () => void;
   disabled?: boolean;
+  fullWidth?: boolean; // fill container width (used for specials stacked layout)
 }
 
 const formatOdds = (odds: number): string => {
   return odds > 0 ? `+${odds}` : `${odds}`;
 };
 
-const Button = styled.button<{ selected: boolean }>`
+const Button = styled.button<{ selected: boolean; fullWidth?: boolean }>`
   display: flex;
-  flex-direction: column;
+  flex-direction: ${({ fullWidth }) => fullWidth ? 'row' : 'column'};
   align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 8px 6px;
+  justify-content: ${({ fullWidth }) => fullWidth ? 'space-between' : 'center'};
+  ${({ fullWidth }) => fullWidth ? 'width: 100%;' : 'flex: 1;'}
+  padding: 8px ${({ fullWidth }) => fullWidth ? '12px' : '6px'};
   border-radius: 6px;
   border: 1px solid ${colors.border};
   background-color: ${colors.surfaceHover};
@@ -59,15 +60,16 @@ const OddsValue = styled.span<{ positive: boolean }>`
   font-weight: 700;
   color: ${({ positive }) => (positive ? colors.positive : colors.text)};
   margin-top: 2px;
+  flex-shrink: 0;
 `;
 
-const OddsButton: React.FC<OddsButtonProps> = ({ label, odds, selected = false, onSelect, disabled }) => {
+const OddsButton: React.FC<OddsButtonProps> = ({ label, odds, selected = false, onSelect, disabled, fullWidth }) => {
   const handleClick = () => {
     if (!disabled && onSelect) onSelect();
   };
 
   return (
-    <Button selected={selected} onClick={handleClick} disabled={disabled}>
+    <Button selected={selected} onClick={handleClick} disabled={disabled} fullWidth={fullWidth}>
       <OddsLabel>{label}</OddsLabel>
       <OddsValue positive={odds > 0}>{formatOdds(odds)}</OddsValue>
     </Button>

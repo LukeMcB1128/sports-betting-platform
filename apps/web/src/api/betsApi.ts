@@ -8,7 +8,8 @@ export interface PlaceBetPayload {
   side: BetSide;
   label: string;
   odds: number;
-  line?: number;  // spread line at placement time (spread bets only)
+  line?: number;      // spread line at placement time (spread bets only)
+  specialId?: string; // which special (betType === 'special' only)
   stake: number;
   cashAmount: number;
   userId: string;

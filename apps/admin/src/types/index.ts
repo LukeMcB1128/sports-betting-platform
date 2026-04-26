@@ -15,9 +15,16 @@ export interface LockedSides {
   away: boolean;
 }
 
-export type BetType = 'moneyline' | 'spread';
-export type BetSide = 'home' | 'away';
+export type BetType = 'moneyline' | 'spread' | 'special';
+export type BetSide = 'home' | 'away' | 'yes' | 'no';
 export type BetStatus = 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
+
+export interface Special {
+  id: string;
+  question: string;
+  yesOdds: number;
+  noOdds: number;
+}
 
 export interface Bet {
   id: string;
@@ -26,6 +33,8 @@ export interface Bet {
   side: BetSide;
   label: string;
   odds: number;
+  line?: number;
+  specialId?: string;
   stake: number;
   payout: number;
   cashAmount: number; // cash declared by user at submission
@@ -66,6 +75,7 @@ export interface Game {
   bettingEnabled: boolean;
   betLimits?: BetLimits;
   lockedSides?: LockedSides;
+  specials?: Special[];
 }
 
 // Form shapes (all strings before parsing)

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Game, GameStatus, GameOdds, BetLimits, LockedSides } from '../types';
+import { Game, GameStatus, GameOdds, BetLimits, LockedSides, Special } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import BetsPanel from '../components/BetsPanel';
@@ -20,6 +20,7 @@ import {
   removeGame,
   saveBetLimits,
   updateLockedSides,
+  updateSpecials,
   voidAllBets,
 } from '../api/gamesApi';
 
@@ -194,6 +195,11 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
     setGames((prev) => prev.map((g) => (g.id === gameId ? updated : g)));
   };
 
+  const handleUpdateSpecials = async (gameId: string, specials: Special[]) => {
+    const updated = await updateSpecials(gameId, specials);
+    setGames((prev) => prev.map((g) => (g.id === gameId ? updated : g)));
+  };
+
   const handleVoidAllBets = async (gameId: string) => {
     await voidAllBets(gameId, adminToken);
     // bets panel will refresh on its own poll; no game state change needed
@@ -295,6 +301,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
           onSaveLines={handleSaveLines}
           onSaveBetLimits={handleSaveBetLimits}
           onUpdateLockedSides={handleUpdateLockedSides}
+          onUpdateSpecials={handleUpdateSpecials}
           onVoidAllBets={handleVoidAllBets}
           onRemove={(gameId) => {
             handleRemove(gameId);

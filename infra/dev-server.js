@@ -192,6 +192,9 @@ const calcPayout = (stake, odds) => {
  * Returns 'won', 'lost', or 'void' (push / tie).
  */
 const settleBetOutcome = (bet, game) => {
+  // Specials are always settled manually — never auto-settle
+  if (bet.betType === 'special') return 'void';
+
   const { awayScore, homeScore } = game;
 
   if (bet.betType === 'moneyline') {
@@ -549,7 +552,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bets — place a bet
     if (req.method === 'POST' && resource === 'bets' && !id) {
-      const { gameId, betType, side, label, odds, stake, line, cashAmount, userName, userId } = await readBody(req);
+      const { gameId, betType, side, label, odds, stake, line, specialId, cashAmount, userName, userId } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -594,7 +597,8 @@ const server = http.createServer(async (req, res) => {
         side,
         label,
         odds,
-        ...(line != null ? { line } : {}),
+        ...(line     != null ? { line }      : {}),
+        ...(specialId       ? { specialId }  : {}),
         stake,
         cashAmount,
         payout,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Game, GameOdds, BetLimits, LockedSides, SetLinesFormData } from '../types';
+import { Game, GameOdds, BetLimits, LockedSides, SetLinesFormData, Special } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import Button from './Button';
 import FormField, { Input } from './FormField';
@@ -15,6 +15,7 @@ interface AdvancedGameModalProps {
   onSaveLines: (gameId: string, odds: GameOdds) => void;
   onSaveBetLimits: (gameId: string, betLimits: BetLimits) => void;
   onUpdateLockedSides: (gameId: string, lockedSides: LockedSides) => void;
+  onUpdateSpecials: (gameId: string, specials: Special[]) => void;
   onVoidAllBets: (gameId: string) => void;
   onRemove: (gameId: string) => void;
 }
@@ -22,7 +23,8 @@ interface AdvancedGameModalProps {
 interface Bet {
   id: string;
   gameId: string;
-  side: 'home' | 'away';
+  betType: string;
+  side: string;
   payout: number;
   status: string;
 }
@@ -241,6 +243,73 @@ const OddsHint = styled.p`
   margin-bottom: 4px;
 `;
 
+const SpecialRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background-color: ${colors.surfaceHover};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+`;
+
+const SpecialInfo = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const SpecialQuestion = styled.div`
+  font-size: 13px;
+  font-weight: 500;
+  color: ${colors.text};
+  margin-bottom: 3px;
+`;
+
+const SpecialOdds = styled.div`
+  font-size: 11px;
+  color: ${colors.textMuted};
+`;
+
+const SpecialActions = styled.div`
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+`;
+
+const SmallButton = styled.button<{ variant?: 'edit' | 'remove' }>`
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+
+  color: ${({ variant }) => variant === 'remove' ? colors.danger : colors.textMuted};
+  border: 1px solid ${({ variant }) => variant === 'remove' ? `${colors.danger}60` : colors.border};
+  background-color: transparent;
+
+  &:hover {
+    background-color: ${({ variant }) => variant === 'remove' ? `${colors.danger}18` : colors.surfaceHover};
+  }
+`;
+
+const SpecialForm = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background-color: ${colors.surfaceHover};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+`;
+
+const SpecialFormRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+`;
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const toStr = (n: number): string => (n > 0 ? `+${n}` : String(n));
@@ -297,6 +366,7 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
   onSaveLines,
   onSaveBetLimits,
   onUpdateLockedSides,
+  onUpdateSpecials,
   onVoidAllBets,
   onRemove,
 }) => {
@@ -386,26 +456,105 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
     onUpdateLockedSides(game.id, newLocked);
   };
 
-  // ── Section 4: Game Liability ─────────────────────────────────────────────
+  // ── Section 4: Specials ───────────────────────────────────────────────────
 
-  const [liability, setLiability] = useState<{ away: number; home: number } | null>(null);
+  const [specials, setSpecials] = useState<Special[]>(game.specials ?? []);
+  // Form state — used for both Add and Edit
+  const [editingSpecialId, setEditingSpecialId] = useState<string | null>(null); // null = adding new
+  const [showSpecialForm, setShowSpecialForm] = useState(false);
+  const [spQuestion, setSpQuestion] = useState('');
+  const [spYesOdds, setSpYesOdds] = useState('');
+  const [spNoOdds, setSpNoOdds] = useState('');
+  const [spError, setSpError] = useState<string | null>(null);
+
+  const openAddSpecial = () => {
+    setEditingSpecialId(null);
+    setSpQuestion('');
+    setSpYesOdds('');
+    setSpNoOdds('');
+    setSpError(null);
+    setShowSpecialForm(true);
+  };
+
+  const openEditSpecial = (sp: Special) => {
+    setEditingSpecialId(sp.id);
+    setSpQuestion(sp.question);
+    setSpYesOdds(toStr(sp.yesOdds));
+    setSpNoOdds(toStr(sp.noOdds));
+    setSpError(null);
+    setShowSpecialForm(true);
+  };
+
+  const cancelSpecialForm = () => {
+    setShowSpecialForm(false);
+    setEditingSpecialId(null);
+    setSpError(null);
+  };
+
+  const handleSaveSpecial = () => {
+    if (!spQuestion.trim()) { setSpError('Question is required.'); return; }
+    const yesNum = parseOdds(spYesOdds);
+    const noNum  = parseOdds(spNoOdds);
+    if (yesNum === null || yesNum === 0) { setSpError('Yes Odds must be a valid American odds number.'); return; }
+    if (noNum  === null || noNum  === 0) { setSpError('No Odds must be a valid American odds number.'); return; }
+
+    let updated: Special[];
+    if (editingSpecialId) {
+      updated = specials.map((s) =>
+        s.id === editingSpecialId
+          ? { ...s, question: spQuestion.trim(), yesOdds: yesNum, noOdds: noNum }
+          : s
+      );
+    } else {
+      const newSpecial: Special = {
+        id: Date.now().toString(),
+        question: spQuestion.trim(),
+        yesOdds: yesNum,
+        noOdds: noNum,
+      };
+      updated = [...specials, newSpecial];
+    }
+
+    setSpecials(updated);
+    onUpdateSpecials(game.id, updated);
+    setShowSpecialForm(false);
+    setEditingSpecialId(null);
+    setSpError(null);
+  };
+
+  const handleRemoveSpecial = (id: string) => {
+    const updated = specials.filter((s) => s.id !== id);
+    setSpecials(updated);
+    onUpdateSpecials(game.id, updated);
+  };
+
+  // ── Section 5: Game Liability ─────────────────────────────────────────────
+
+  const [liability, setLiability] = useState<{ away: number; home: number; special: number } | null>(null);
   const [liabilityLoading, setLiabilityLoading] = useState(true);
 
   const fetchLiability = async () => {
     setLiabilityLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/bets`);
+      const res = await fetch(`${API_BASE}/bets`, {
+        headers: { 'X-Admin-Token': adminToken },
+      });
       const allBets: Bet[] = await res.json();
-      const gameBets = allBets.filter((b) => b.gameId === game.id && b.status === 'pending');
+      const gameBets = allBets.filter(
+        (b) => b.gameId === game.id && (b.status === 'pending' || b.status === 'awaiting_payment')
+      );
       const awayExposure = gameBets
-        .filter((b) => b.side === 'away')
+        .filter((b) => b.betType !== 'special' && b.side === 'away')
         .reduce((sum, b) => sum + b.payout, 0);
       const homeExposure = gameBets
-        .filter((b) => b.side === 'home')
+        .filter((b) => b.betType !== 'special' && b.side === 'home')
         .reduce((sum, b) => sum + b.payout, 0);
-      setLiability({ away: awayExposure, home: homeExposure });
+      const specialExposure = gameBets
+        .filter((b) => b.betType === 'special')
+        .reduce((sum, b) => sum + b.payout, 0);
+      setLiability({ away: awayExposure, home: homeExposure, special: specialExposure });
     } catch {
-      setLiability({ away: 0, home: 0 });
+      setLiability({ away: 0, home: 0, special: 0 });
     } finally {
       setLiabilityLoading(false);
     }
@@ -416,19 +565,19 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Section 5: Void All Bets ──────────────────────────────────────────────
+  // ── Section 6: Void All Bets ──────────────────────────────────────────────
 
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [voidPendingCount, setVoidPendingCount] = useState<number | null>(null);
 
   useEffect(() => {
     if (!liabilityLoading && liability !== null) {
-      // We'll count from bets fetch; re-use liability fetch results aren't the count
-      // We need a count — fetch again briefly
-      fetch(`${API_BASE}/bets`)
+      fetch(`${API_BASE}/bets`, { headers: { 'X-Admin-Token': adminToken } })
         .then((r) => r.json())
         .then((allBets: Bet[]) => {
-          const count = allBets.filter((b) => b.gameId === game.id && b.status === 'pending').length;
+          const count = allBets.filter(
+            (b) => b.gameId === game.id && (b.status === 'pending' || b.status === 'awaiting_payment')
+          ).length;
           setVoidPendingCount(count);
         })
         .catch(() => setVoidPendingCount(0));
@@ -443,7 +592,7 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
     fetchLiability();
   };
 
-  // ── Section 6: Remove Game ────────────────────────────────────────────────
+  // ── Section 7: Remove Game ────────────────────────────────────────────────
 
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [removePassword, setRemovePassword] = useState('');
@@ -467,7 +616,7 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const totalLiability = liability ? liability.away + liability.home : 0;
+  const totalLiability = liability ? liability.away + liability.home + liability.special : 0;
 
   return (
     <Overlay onClick={onClose}>
@@ -643,7 +792,79 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
 
           <Divider />
 
-          {/* ── Section 4: Game Liability ─────────────────────────────────── */}
+          {/* ── Section 4: Specials ───────────────────────────────────────── */}
+          <SectionBlock>
+            <SectionTitle>Specials</SectionTitle>
+
+            {specials.length === 0 && !showSpecialForm && (
+              <HintText>No specials added yet.</HintText>
+            )}
+
+            {specials.map((sp) => (
+              <SpecialRow key={sp.id}>
+                <SpecialInfo>
+                  <SpecialQuestion>{sp.question}</SpecialQuestion>
+                  <SpecialOdds>
+                    YES {sp.yesOdds > 0 ? `+${sp.yesOdds}` : sp.yesOdds}
+                    {'  ·  '}
+                    NO {sp.noOdds > 0 ? `+${sp.noOdds}` : sp.noOdds}
+                  </SpecialOdds>
+                </SpecialInfo>
+                <SpecialActions>
+                  <SmallButton onClick={() => openEditSpecial(sp)}>Edit</SmallButton>
+                  <SmallButton variant="remove" onClick={() => handleRemoveSpecial(sp.id)}>✕</SmallButton>
+                </SpecialActions>
+              </SpecialRow>
+            ))}
+
+            {showSpecialForm && (
+              <SpecialForm>
+                <FormField label="Question (e.g. Paul KOs James first round)">
+                  <Input
+                    value={spQuestion}
+                    onChange={(e) => { setSpQuestion(e.target.value); setSpError(null); }}
+                    placeholder="Enter proposition question"
+                    autoFocus
+                  />
+                </FormField>
+                <SpecialFormRow>
+                  <FormField label="Yes Odds (e.g. +200)">
+                    <Input
+                      value={spYesOdds}
+                      onChange={(e) => { setSpYesOdds(e.target.value); setSpError(null); }}
+                      placeholder="+200"
+                    />
+                  </FormField>
+                  <FormField label="No Odds (e.g. -250)">
+                    <Input
+                      value={spNoOdds}
+                      onChange={(e) => { setSpNoOdds(e.target.value); setSpError(null); }}
+                      placeholder="-250"
+                    />
+                  </FormField>
+                </SpecialFormRow>
+                {spError && <ErrorMsg>{spError}</ErrorMsg>}
+                <Actions>
+                  <Button type="button" variant="ghost" size="sm" onClick={cancelSpecialForm}>Cancel</Button>
+                  <Button type="button" variant="primary" size="sm" onClick={handleSaveSpecial}>
+                    {editingSpecialId ? 'Save Changes' : 'Add Special'}
+                  </Button>
+                </Actions>
+              </SpecialForm>
+            )}
+
+            {!showSpecialForm && (
+              <div>
+                <Button type="button" variant="ghost" size="sm" onClick={openAddSpecial}>
+                  + Add Special
+                </Button>
+              </div>
+            )}
+          </SectionBlock>
+
+          <Divider />
+
+          {/* ── Section 5: Game Liability ─────────────────────────────────── */}
           <SectionBlock>
             <SectionTitle>Game Liability</SectionTitle>
             {liabilityLoading ? (
@@ -658,6 +879,12 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
                   <span>Home exposure ({game.homeTeam})</span>
                   <span>${liability.home.toFixed(2)}</span>
                 </LiabilityLine>
+                {liability.special > 0 && (
+                  <LiabilityLine>
+                    <span>Specials exposure</span>
+                    <span>${liability.special.toFixed(2)}</span>
+                  </LiabilityLine>
+                )}
                 <LiabilityTotal>
                   <span>Total</span>
                   <span>${totalLiability.toFixed(2)}</span>
@@ -668,7 +895,7 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
 
           <Divider />
 
-          {/* ── Section 5: Void All Bets ──────────────────────────────────── */}
+          {/* ── Section 6: Void All Bets ──────────────────────────────────── */}
           <SectionBlock>
             <SectionTitle>Void All Bets</SectionTitle>
 
@@ -702,7 +929,7 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
 
           <Divider />
 
-          {/* ── Section 6: Remove Game ────────────────────────────────────── */}
+          {/* ── Section 7: Remove Game ────────────────────────────────────── */}
           <DangerSection>
             <DangerHeader>Danger Zone</DangerHeader>
             <DangerDesc>

@@ -16,7 +16,8 @@ interface SelectedBet {
   side: BetSide;
   label: string;
   odds: number;
-  line?: number; // spread line, only for spread bets
+  line?: number;       // spread line, only for spread bets
+  specialId?: string;  // which special, only for special bets
 }
 
 const Card = styled.div`
@@ -133,6 +134,45 @@ const OddsRow = styled.div`
   gap: 4px;
 `;
 
+// ── Specials ─────────────────────────────────────────────────────────────────
+
+const SpecialsDivider = styled.div`
+  height: 1px;
+  background-color: ${colors.border};
+`;
+
+const SpecialsSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+`;
+
+const SpecialsLabel = styled.span`
+  font-size: 10px;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+`;
+
+const SpecialItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
+const SpecialQuestion = styled.span`
+  font-size: 13px;
+  font-weight: 500;
+  color: ${colors.text};
+`;
+
+const SpecialButtons = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+`;
+
 const formatDateTime = (iso: string): string => {
   const d = new Date(iso);
   const date = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -145,8 +185,11 @@ const formatSpreadLabel = (team: string, line: number): string => {
   return `${team} ${sign}${line}`;
 };
 
-const isSameBet = (a: SelectedBet | null, betType: BetType, side: BetSide) =>
-  a !== null && a.betType === betType && a.side === side;
+const isSameBet = (a: SelectedBet | null, betType: BetType, side: BetSide, specialId?: string) =>
+  a !== null &&
+  a.betType === betType &&
+  a.side === side &&
+  (betType !== 'special' || a.specialId === specialId);
 
 const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
   const [selected, setSelected] = useState<SelectedBet | null>(null);
@@ -157,6 +200,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
   const bettingOpen = game.bettingEnabled !== false; // undefined → open (backward compat)
   const lockedSides = game.lockedSides ?? { home: false, away: false };
   const showScore = isLive || isResolving || isFinal;
+  const specials = game.specials ?? [];
 
   const awayScore = game.awayScore ?? 0;
   const homeScore = game.homeScore ?? 0;
@@ -166,13 +210,13 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
   const gameDate = new Date(game.startTime).toLocaleDateString([], { month: 'short', day: 'numeric' });
   const metaTime = isLive || isResolving ? 'In Progress' : isFinal ? `${gameDate} · Final` : formatDateTime(game.startTime);
 
-  const handleSelect = (betType: BetType, side: BetSide, label: string, odds: number, line?: number) => {
+  const handleSelect = (betType: BetType, side: BetSide, label: string, odds: number, line?: number, specialId?: string) => {
     if (!bettingOpen) return;
     // Toggle off if same button clicked again
-    if (isSameBet(selected, betType, side)) {
+    if (isSameBet(selected, betType, side, specialId)) {
       setSelected(null);
     } else {
-      setSelected({ betType, side, label, odds, line });
+      setSelected({ betType, side, label, odds, line, specialId });
     }
   };
 
@@ -267,6 +311,36 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                   )}
                 </MarketsRow>
 
+                {specials.length > 0 && (
+                  <>
+                    <SpecialsDivider />
+                    <SpecialsSection>
+                      <SpecialsLabel>Specials</SpecialsLabel>
+                      {specials.map((sp) => (
+                        <SpecialItem key={sp.id}>
+                          <SpecialQuestion>{sp.question}</SpecialQuestion>
+                          <SpecialButtons>
+                            <OddsButton
+                              label="YES"
+                              odds={sp.yesOdds}
+                              selected={isSameBet(selected, 'special', 'yes', sp.id)}
+                              onSelect={() => handleSelect('special', 'yes', `YES — ${sp.question}`, sp.yesOdds, undefined, sp.id)}
+                              fullWidth
+                            />
+                            <OddsButton
+                              label="NO"
+                              odds={sp.noOdds}
+                              selected={isSameBet(selected, 'special', 'no', sp.id)}
+                              onSelect={() => handleSelect('special', 'no', `NO — ${sp.question}`, sp.noOdds, undefined, sp.id)}
+                              fullWidth
+                            />
+                          </SpecialButtons>
+                        </SpecialItem>
+                      ))}
+                    </SpecialsSection>
+                  </>
+                )}
+
                 {selected && (
                   <BetSlipPanel
                     gameId={game.id}
@@ -275,7 +349,12 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                     label={selected.label}
                     odds={selected.odds}
                     line={selected.line}
-                    maxStake={game.betLimits?.[selected.side]?.maxStake}
+                    specialId={selected.specialId}
+                    maxStake={
+                      selected.betType !== 'special'
+                        ? game.betLimits?.[selected.side as 'home' | 'away']?.maxStake
+                        : undefined
+                    }
                     userId={userId}
                     userName={userName}
                     onClose={() => setSelected(null)}

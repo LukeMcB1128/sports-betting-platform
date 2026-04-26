@@ -1,4 +1,4 @@
-import { Game, GameOdds, GameStatus, BetLimits, LockedSides } from '../types';
+import { Game, GameOdds, GameStatus, BetLimits, LockedSides, Special } from '../types';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
@@ -94,6 +94,16 @@ export const updateLockedSides = async (id: string, lockedSides: LockedSides): P
     body: JSON.stringify({ lockedSides }),
   });
   if (!res.ok) throw new Error('Failed to update locked sides');
+  return res.json();
+};
+
+export const updateSpecials = async (id: string, specials: Special[]): Promise<Game> => {
+  const res = await fetch(`${API_BASE}/games/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ specials }),
+  });
+  if (!res.ok) throw new Error('Failed to update specials');
   return res.json();
 };
 
