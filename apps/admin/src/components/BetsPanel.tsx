@@ -531,11 +531,6 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
                         </MonoValue>
                       </Td>
                       <Td><MonoValue>{formatMoney(bet.stake)}</MonoValue></Td>
-                      <Td>
-                        <MonoValue style={{ color: bet.cashAmount ? colors.text : colors.textMuted }}>
-                          {bet.cashAmount ? formatMoney(bet.cashAmount) : '—'}
-                        </MonoValue>
-                      </Td>
                       <Td><MonoValue>{formatMoney(profit)}</MonoValue></Td>
                       <Td><MonoValue>{formatMoney(bet.payout)}</MonoValue></Td>
                       <Td>
