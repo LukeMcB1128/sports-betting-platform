@@ -11,7 +11,6 @@ export interface PlaceBetPayload {
   line?: number;      // spread line at placement time (spread bets only)
   specialId?: string; // which special (betType === 'special' only)
   stake: number;
-  cashAmount: number;
   userId: string;
   userName: string;
 }

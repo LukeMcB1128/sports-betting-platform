@@ -236,8 +236,7 @@ const BetSlipPanel: React.FC<BetSlipPanelProps> = ({
     setLoading(true);
     setError(null);
     try {
-      // cashAmount equals stake — the bet amount is what the user pays in cash
-      await placeBet({ gameId, betType, side, label, odds, line, specialId, stake, cashAmount: stake, userId, userName });
+      await placeBet({ gameId, betType, side, label, odds, line, specialId, stake, userId, userName });
       setSuccess(true);
       setTimeout(() => {
         onSuccess();

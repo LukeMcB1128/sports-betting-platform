@@ -6,7 +6,6 @@ export interface PlaceParlayPayload {
   legs: ParlayLeg[];
   combinedOdds: number;
   stake: number;
-  cashAmount: number;
   userId: string;
   userName: string;
 }
