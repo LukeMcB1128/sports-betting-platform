@@ -123,8 +123,6 @@ const validate = (f: AddGameFormData): Errors => {
   return errs;
 };
 
-let nextId = 100;
-
 const AddGameModal: React.FC<AddGameModalProps> = ({ onClose, onAdd }) => {
   const [form, setForm] = useState<AddGameFormData>(DEFAULT_FORM);
   const [errors, setErrors] = useState<Errors>({});
