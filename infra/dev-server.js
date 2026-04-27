@@ -126,6 +126,42 @@ const generateId = () =>
 
 const generateToken = () => crypto.randomBytes(32).toString('hex');
 
+// ── Startup migration: fix integer/duplicate game IDs ───────────────────────
+{
+  const seen = new Set();
+  // oldId -> newId for the FIRST game seen with that id; duplicates get their
+  // own new IDs but bets/parlays (which can't be disambiguated) all follow the
+  // first game's new ID.
+  const idMap = new Map();
+
+  games = games.map((g) => {
+    const isIntegerId = /^\d+$/.test(g.id);
+    const isDuplicate = seen.has(g.id);
+
+    if (isIntegerId || isDuplicate) {
+      const newId = generateId();
+      if (!idMap.has(g.id)) idMap.set(g.id, newId);
+      seen.add(g.id);
+      return { ...g, id: newId };
+    }
+
+    seen.add(g.id);
+    return g;
+  });
+
+  if (idMap.size > 0) {
+    bets    = bets.map((b)    => ({ ...b, gameId: idMap.get(b.gameId) ?? b.gameId }));
+    parlays = parlays.map((p) => ({
+      ...p,
+      legs: p.legs.map((l) => ({ ...l, gameId: idMap.get(l.gameId) ?? l.gameId })),
+    }));
+    saveGames();
+    saveBets();
+    saveParlays();
+    console.log(`[MIGRATE] Re-assigned ${idMap.size} duplicate/integer game ID(s)`);
+  }
+}
+
 const hashPassword = (password) => {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
@@ -795,6 +831,7 @@ const server = http.createServer(async (req, res) => {
     // POST /games
     if (req.method === 'POST' && resource === 'games') {
       const game = await readBody(req);
+      game.id = generateId(); // server always owns the ID — prevents client collisions
       game.bettingEnabled = true; // auto-enable betting when a game is created
       games.unshift(game);
       saveGames();

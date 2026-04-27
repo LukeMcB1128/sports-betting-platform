@@ -137,8 +137,8 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   }, []);
 
   const handleAddGame = async (game: Game) => {
-    await createGame(game);
-    setGames((prev) => [game, ...prev]);
+    const created = await createGame(game);
+    setGames((prev) => [created, ...prev]);
   };
 
   const handleUpdateStatus = async (gameId: string, status: GameStatus) => {
