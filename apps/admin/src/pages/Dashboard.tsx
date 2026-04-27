@@ -295,6 +295,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
 
       {advancedGame && (
         <AdvancedGameModal
+          key={advancedGameId}
           game={advancedGame}
           adminToken={adminToken}
           onClose={() => setAdvancedGameId(null)}
