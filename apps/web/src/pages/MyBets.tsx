@@ -472,10 +472,6 @@ const AmountRow: React.FC<{ bet: Bet }> = ({ bet }) => {
           <AmountValue>${formatMoney(bet.stake)}</AmountValue>
         </AmountGroup>
         <AmountGroup>
-          <AmountLabel>Cash Declared</AmountLabel>
-          <AmountValue>${formatMoney(bet.cashAmount)}</AmountValue>
-        </AmountGroup>
-        <AmountGroup>
           <AmountLabel>To Win</AmountLabel>
           <AmountValue>${formatMoney(profit)}</AmountValue>
         </AmountGroup>

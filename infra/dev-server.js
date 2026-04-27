@@ -126,6 +126,42 @@ const generateId = () =>
 
 const generateToken = () => crypto.randomBytes(32).toString('hex');
 
+// ── Startup migration: fix integer/duplicate game IDs ───────────────────────
+{
+  const seen = new Set();
+  // oldId -> newId for the FIRST game seen with that id; duplicates get their
+  // own new IDs but bets/parlays (which can't be disambiguated) all follow the
+  // first game's new ID.
+  const idMap = new Map();
+
+  games = games.map((g) => {
+    const isIntegerId = /^\d+$/.test(g.id);
+    const isDuplicate = seen.has(g.id);
+
+    if (isIntegerId || isDuplicate) {
+      const newId = generateId();
+      if (!idMap.has(g.id)) idMap.set(g.id, newId);
+      seen.add(g.id);
+      return { ...g, id: newId };
+    }
+
+    seen.add(g.id);
+    return g;
+  });
+
+  if (idMap.size > 0) {
+    bets    = bets.map((b)    => ({ ...b, gameId: idMap.get(b.gameId) ?? b.gameId }));
+    parlays = parlays.map((p) => ({
+      ...p,
+      legs: p.legs.map((l) => ({ ...l, gameId: idMap.get(l.gameId) ?? l.gameId })),
+    }));
+    saveGames();
+    saveBets();
+    saveParlays();
+    console.log(`[MIGRATE] Re-assigned ${idMap.size} duplicate/integer game ID(s)`);
+  }
+}
+
 const hashPassword = (password) => {
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex');
@@ -644,7 +680,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bets — place a bet
     if (req.method === 'POST' && resource === 'bets' && !id) {
-      const { gameId, betType, side, label, odds, stake, line, specialId, cashAmount, userName, userId } = await readBody(req);
+      const { gameId, betType, side, label, odds, stake, line, specialId, userName, userId } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -692,7 +728,6 @@ const server = http.createServer(async (req, res) => {
         ...(line     != null ? { line }      : {}),
         ...(specialId       ? { specialId }  : {}),
         stake,
-        cashAmount,
         payout,
         userId: userId || '',
         userName: userName || 'Unknown',
@@ -703,7 +738,7 @@ const server = http.createServer(async (req, res) => {
       bets.unshift(bet);
       saveBets();
       // No balance deduction — payment confirmed in cash by admin
-      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  cash=$${cashAmount}  status=awaiting_payment`);
+      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  status=awaiting_payment`);
       res.writeHead(201);
       res.end(JSON.stringify({ bet }));
       return;
@@ -795,6 +830,7 @@ const server = http.createServer(async (req, res) => {
     // POST /games
     if (req.method === 'POST' && resource === 'games') {
       const game = await readBody(req);
+      game.id = generateId(); // server always owns the ID — prevents client collisions
       game.bettingEnabled = true; // auto-enable betting when a game is created
       games.unshift(game);
       saveGames();
@@ -909,7 +945,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /parlays — place a parlay
     if (req.method === 'POST' && resource === 'parlays' && !id) {
-      const { legs, combinedOdds, stake, cashAmount, userId, userName } = await readBody(req);
+      const { legs, combinedOdds, stake, userId, userName } = await readBody(req);
 
       if (!legs || !Array.isArray(legs) || legs.length < 2) {
         res.writeHead(400);
@@ -941,7 +977,6 @@ const server = http.createServer(async (req, res) => {
         combinedOdds,
         stake,
         payout,
-        cashAmount: cashAmount ?? stake,
         status: 'awaiting_payment',
         placedAt: new Date().toISOString(),
       };

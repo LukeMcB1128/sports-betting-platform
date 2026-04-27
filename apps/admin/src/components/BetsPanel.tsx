@@ -274,7 +274,7 @@ const Banner = styled.div<{ variant: 'error' | 'loading' }>`
   color: ${({ variant }) => variant === 'error' ? colors.danger : colors.textMuted};
 `;
 
-const COLS = 11;
+const COLS = 10;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -485,7 +485,6 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
               <Th>Market</Th>
               <Th>Odds</Th>
               <Th>Bet</Th>
-              <Th>Cash</Th>
               <Th>To Win</Th>
               <Th>Payout</Th>
               <Th>Status</Th>
@@ -532,11 +531,6 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
                         </MonoValue>
                       </Td>
                       <Td><MonoValue>{formatMoney(bet.stake)}</MonoValue></Td>
-                      <Td>
-                        <MonoValue style={{ color: bet.cashAmount ? colors.text : colors.textMuted }}>
-                          {bet.cashAmount ? formatMoney(bet.cashAmount) : '—'}
-                        </MonoValue>
-                      </Td>
                       <Td><MonoValue>{formatMoney(profit)}</MonoValue></Td>
                       <Td><MonoValue>{formatMoney(bet.payout)}</MonoValue></Td>
                       <Td>
@@ -609,11 +603,6 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
                       </MonoValue>
                     </Td>
                     <Td><MonoValue>{formatMoney(parlay.stake)}</MonoValue></Td>
-                    <Td>
-                      <MonoValue style={{ color: parlay.cashAmount ? colors.text : colors.textMuted }}>
-                        {parlay.cashAmount ? formatMoney(parlay.cashAmount) : '—'}
-                      </MonoValue>
-                    </Td>
                     <Td><MonoValue>{formatMoney(profit)}</MonoValue></Td>
                     <Td><MonoValue>{formatMoney(parlay.payout)}</MonoValue></Td>
                     <Td>

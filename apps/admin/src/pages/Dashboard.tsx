@@ -126,11 +126,8 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddGame, setShowAddGame] = useState(false);
-  const [advancedGameId, setAdvancedGameId] = useState<string | null>(null);
+  const [advancedGame, setAdvancedGame] = useState<Game | null>(null);
   const [enterScoreGame, setEnterScoreGame] = useState<Game | null>(null);
-
-  // Derive advancedGame live from games array so the modal always has fresh state
-  const advancedGame = advancedGameId ? games.find((g) => g.id === advancedGameId) ?? null : null;
 
   useEffect(() => {
     fetchGames()
@@ -140,8 +137,8 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   }, []);
 
   const handleAddGame = async (game: Game) => {
-    await createGame(game);
-    setGames((prev) => [game, ...prev]);
+    const created = await createGame(game);
+    setGames((prev) => [created, ...prev]);
   };
 
   const handleUpdateStatus = async (gameId: string, status: GameStatus) => {
@@ -274,7 +271,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
             onTogglePublish={handleTogglePublish}
             onEnterScore={setEnterScoreGame}
             onEnableDisableBetting={handleEnableDisableBetting}
-            onAdvanced={(game) => setAdvancedGameId(game.id)}
+            onAdvanced={(game) => setAdvancedGame(game)}
           />
         </>
       )}
@@ -297,7 +294,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         <AdvancedGameModal
           game={advancedGame}
           adminToken={adminToken}
-          onClose={() => setAdvancedGameId(null)}
+          onClose={() => setAdvancedGame(null)}
           onSaveLines={handleSaveLines}
           onSaveBetLimits={handleSaveBetLimits}
           onUpdateLockedSides={handleUpdateLockedSides}
@@ -305,7 +302,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
           onVoidAllBets={handleVoidAllBets}
           onRemove={(gameId) => {
             handleRemove(gameId);
-            setAdvancedGameId(null);
+            setAdvancedGame(null);
           }}
         />
       )}

@@ -37,7 +37,6 @@ export interface Bet {
   specialId?: string;
   stake: number;
   payout: number;
-  cashAmount: number; // cash declared by user at submission
   userId: string;
   userName: string;
   status: BetStatus;
@@ -97,7 +96,6 @@ export interface Parlay {
   combinedOdds: number;
   stake: number;
   payout: number;
-  cashAmount: number;
   status: 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
   placedAt: string;
 }

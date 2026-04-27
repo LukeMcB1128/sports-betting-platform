@@ -123,8 +123,6 @@ const validate = (f: AddGameFormData): Errors => {
   return errs;
 };
 
-let nextId = 100;
-
 const AddGameModal: React.FC<AddGameModalProps> = ({ onClose, onAdd }) => {
   const [form, setForm] = useState<AddGameFormData>(DEFAULT_FORM);
   const [errors, setErrors] = useState<Errors>({});
@@ -145,7 +143,7 @@ const AddGameModal: React.FC<AddGameModalProps> = ({ onClose, onAdd }) => {
 
     const startTime = new Date(`${form.startDate}T${form.startTime}`).toISOString();
     const newGame: Game = {
-      id: String(nextId++),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       sport: form.sport.toLowerCase(),
       league: form.league,
       homeTeam: form.homeTeam.trim(),
