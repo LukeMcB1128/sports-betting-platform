@@ -223,8 +223,8 @@ const GamesTable: React.FC<GamesTableProps> = ({
                 {/* Lines */}
                 <Td>
                   <OddsSummary>
-                    <OddsLine>ML: {formatOdds(game.odds.moneyline.away)} / {formatOdds(game.odds.moneyline.home)}</OddsLine>
-                    <OddsLine>SPR: {formatOdds(game.odds.spread.away.line)} ({formatOdds(game.odds.spread.away.juice)}) / {formatOdds(game.odds.spread.home.line)} ({formatOdds(game.odds.spread.home.juice)})</OddsLine>
+                    <OddsLine>ML: {game.odds?.moneyline ? `${formatOdds(game.odds.moneyline.away)} / ${formatOdds(game.odds.moneyline.home)}` : '—'}</OddsLine>
+                    <OddsLine>SPR: {game.odds?.spread ? `${formatOdds(game.odds.spread.away.line)} (${formatOdds(game.odds.spread.away.juice)}) / ${formatOdds(game.odds.spread.home.line)} (${formatOdds(game.odds.spread.home.juice)})` : '—'}</OddsLine>
                   </OddsSummary>
                 </Td>
 
