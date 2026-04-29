@@ -374,12 +374,12 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
   // ── Section 1: Set Lines ───────────────────────────────────────────────────
 
   const [linesForm, setLinesForm] = useState<SetLinesFormData>({
-    mlHome: toStr(game.odds.moneyline.home),
-    mlAway: toStr(game.odds.moneyline.away),
-    spreadHomeLine: toStr(game.odds.spread.home.line),
-    spreadHomeJuice: toStr(game.odds.spread.home.juice),
-    spreadAwayLine: toStr(game.odds.spread.away.line),
-    spreadAwayJuice: toStr(game.odds.spread.away.juice),
+    mlHome: game.odds?.moneyline ? toStr(game.odds.moneyline.home) : '',
+    mlAway: game.odds?.moneyline ? toStr(game.odds.moneyline.away) : '',
+    spreadHomeLine: game.odds?.spread ? toStr(game.odds.spread.home.line) : '',
+    spreadHomeJuice: game.odds?.spread ? toStr(game.odds.spread.home.juice) : '',
+    spreadAwayLine: game.odds?.spread ? toStr(game.odds.spread.away.line) : '',
+    spreadAwayJuice: game.odds?.spread ? toStr(game.odds.spread.away.juice) : '',
   });
   const [linesErrors, setLinesErrors] = useState<LinesErrors>({});
   const [linesSaved, setLinesSaved] = useState(false);
@@ -430,8 +430,8 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
   );
   const [limitsSaved, setLimitsSaved] = useState(false);
 
-  const awayOdds = game.odds.moneyline.away;
-  const homeOdds = game.odds.moneyline.home;
+  const awayOdds = game.odds?.moneyline?.away ?? 0;
+  const homeOdds = game.odds?.moneyline?.home ?? 0;
   const awayMaxStake = calcMaxStake(awayOdds, awayMaxPayout);
   const homeMaxStake = calcMaxStake(homeOdds, homeMaxPayout);
 
