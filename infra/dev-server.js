@@ -970,6 +970,13 @@ const server = http.createServer(async (req, res) => {
         : (100 / Math.abs(combinedOdds)) + 1;
       const payout = parseFloat((stake * combinedDecimal).toFixed(2));
 
+      const PARLAY_MAX_PAYOUT = 250;
+      if (payout > PARLAY_MAX_PAYOUT) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: `Parlay payout cannot exceed $${PARLAY_MAX_PAYOUT}. Reduce your stake or legs.` }));
+        return;
+      }
+
       const parlay = {
         id: generateId(),
         userId: userId || '',
