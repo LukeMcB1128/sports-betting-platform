@@ -29,6 +29,18 @@ interface Bet {
   status: string;
 }
 
+interface ParlayLeg {
+  gameId: string;
+  side: string;
+}
+
+interface Parlay {
+  id: string;
+  legs: ParlayLeg[];
+  payout: number;
+  status: string;
+}
+
 // ── Styled components ─────────────────────────────────────────────────────────
 
 const Overlay = styled.div`
@@ -530,16 +542,19 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
 
   // ── Section 5: Game Liability ─────────────────────────────────────────────
 
-  const [liability, setLiability] = useState<{ away: number; home: number; special: number } | null>(null);
+  const [liability, setLiability] = useState<{ away: number; home: number; special: number; parlay: number } | null>(null);
   const [liabilityLoading, setLiabilityLoading] = useState(true);
 
   const fetchLiability = async () => {
     setLiabilityLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/bets`, {
-        headers: { 'X-Admin-Token': adminToken },
-      });
-      const allBets: Bet[] = await res.json();
+      const [betsRes, parlaysRes] = await Promise.all([
+        fetch(`${API_BASE}/bets`, { headers: { 'X-Admin-Token': adminToken } }),
+        fetch(`${API_BASE}/parlays`, { headers: { 'X-Admin-Token': adminToken } }),
+      ]);
+      const allBets: Bet[] = await betsRes.json();
+      const allParlays: Parlay[] = await parlaysRes.json();
+
       const gameBets = allBets.filter(
         (b) => b.gameId === game.id && (b.status === 'pending' || b.status === 'awaiting_payment')
       );
@@ -552,9 +567,16 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
       const specialExposure = gameBets
         .filter((b) => b.betType === 'special')
         .reduce((sum, b) => sum + b.payout, 0);
-      setLiability({ away: awayExposure, home: homeExposure, special: specialExposure });
+
+      const activeParlays = allParlays.filter(
+        (p) => (p.status === 'pending' || p.status === 'awaiting_payment') &&
+          p.legs.some((l) => l.gameId === game.id)
+      );
+      const parlayExposure = activeParlays.reduce((sum, p) => sum + p.payout, 0);
+
+      setLiability({ away: awayExposure, home: homeExposure, special: specialExposure, parlay: parlayExposure });
     } catch {
-      setLiability({ away: 0, home: 0, special: 0 });
+      setLiability({ away: 0, home: 0, special: 0, parlay: 0 });
     } finally {
       setLiabilityLoading(false);
     }
@@ -616,7 +638,7 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const totalLiability = liability ? liability.away + liability.home + liability.special : 0;
+  const totalLiability = liability ? liability.away + liability.home + liability.special + liability.parlay : 0;
 
   return (
     <Overlay onClick={onClose}>
@@ -883,6 +905,12 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
                   <LiabilityLine>
                     <span>Specials exposure</span>
                     <span>${liability.special.toFixed(2)}</span>
+                  </LiabilityLine>
+                )}
+                {liability.parlay > 0 && (
+                  <LiabilityLine>
+                    <span>Parlay exposure</span>
+                    <span>${liability.parlay.toFixed(2)}</span>
                   </LiabilityLine>
                 )}
                 <LiabilityTotal>
