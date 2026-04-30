@@ -82,7 +82,7 @@ const ParlayBadge: React.FC<ParlayBadgeProps> = ({ userId, userName }) => {
 
   // Calculate combined odds for display
   const rawDecimal = legs.reduce((acc, leg) => acc * toDecimal(leg.odds), 1);
-  const reduction = legs.length >= 2 ? 0.45 : 0;
+  const reduction = legs.length >= 3 ? 0.40 : 0;
   const adjustedDecimal = 1 + (rawDecimal - 1) * (1 - reduction);
   const combinedOdds = toAmerican(adjustedDecimal);
   const oddsStr = combinedOdds > 0 ? `+${combinedOdds}` : `${combinedOdds}`;
