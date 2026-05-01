@@ -886,7 +886,55 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       saveGames();
-      console.log(`[REMOVE] id=${id}`);
+
+      // Void all pending/awaiting_payment bets for this game
+      let voidedBets = 0;
+      bets = bets.map((b) => {
+        if (b.gameId === id && (b.status === 'pending' || b.status === 'awaiting_payment')) {
+          voidedBets++;
+          return { ...b, status: 'void' };
+        }
+        return b;
+      });
+      if (voidedBets > 0) saveBets();
+
+      // Void the matching leg from any pending parlays; recalculate payout for survivors
+      let voidedLegs = 0;
+      parlays = parlays.map((parlay) => {
+        if (parlay.status !== 'pending' && parlay.status !== 'awaiting_payment') return parlay;
+        if (!parlay.legs.some((l) => l.gameId === id)) return parlay;
+
+        const remaining = parlay.legs.filter((l) => l.gameId !== id);
+        voidedLegs++;
+
+        // No legs left → void the whole parlay
+        if (remaining.length === 0) {
+          console.log(`[PARLAY VOID] id=${parlay.id} → all legs removed, parlay voided`);
+          return { ...parlay, legs: remaining, status: 'void' };
+        }
+
+        // Recalculate payout from remaining legs
+        let newPayout;
+        if (remaining.length === 1) {
+          const leg = remaining[0];
+          const profit = leg.odds > 0
+            ? parlay.stake * (leg.odds / 100)
+            : parlay.stake * (100 / Math.abs(leg.odds));
+          newPayout = parseFloat((parlay.stake + profit).toFixed(2));
+        } else {
+          const combined = remaining.reduce((acc, l) => acc * toDecimalOdds(l.odds), 1);
+          newPayout = parseFloat((parlay.stake * combined).toFixed(2));
+        }
+
+        const newCombinedDecimal = remaining.reduce((acc, l) => acc * toDecimalOdds(l.odds), 1);
+        const newCombinedOdds = toAmericanOdds(newCombinedDecimal);
+
+        console.log(`[PARLAY VOID LEG] id=${parlay.id} game=${id} removed → legs=${remaining.length} newPayout=$${newPayout}`);
+        return { ...parlay, legs: remaining, combinedOdds: newCombinedOdds, payout: newPayout };
+      });
+      if (voidedLegs > 0) saveParlays();
+
+      console.log(`[REMOVE] id=${id} voidedBets=${voidedBets} voidedParlayLegs=${voidedLegs}`);
       res.writeHead(204);
       res.end();
       return;
