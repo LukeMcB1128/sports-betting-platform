@@ -75,12 +75,13 @@ const resetRateLimit = (ip) => rateLimitMap.delete(ip);
 // DATA_DIR lets Render mount a persistent disk at a separate path without
 // overwriting the source files in infra/. Defaults to __dirname for local dev.
 const DATA_DIR      = process.env.DATA_DIR || __dirname;
-const USERS_FILE    = path.join(DATA_DIR, 'users.json');
-const LOG_FILE      = path.join(DATA_DIR, 'signin-log.json');
-const GAMES_FILE    = path.join(DATA_DIR, 'games.json');
-const BETS_FILE     = path.join(DATA_DIR, 'bets.json');
-const PARLAYS_FILE  = path.join(DATA_DIR, 'parlays.json');
-const TOKENS_FILE   = path.join(DATA_DIR, 'admin-tokens.json');
+const USERS_FILE     = path.join(DATA_DIR, 'users.json');
+const LOG_FILE       = path.join(DATA_DIR, 'signin-log.json');
+const GAMES_FILE     = path.join(DATA_DIR, 'games.json');
+const BETS_FILE      = path.join(DATA_DIR, 'bets.json');
+const PARLAYS_FILE   = path.join(DATA_DIR, 'parlays.json');
+const TOKENS_FILE    = path.join(DATA_DIR, 'admin-tokens.json');
+const SETTINGS_FILE  = path.join(DATA_DIR, 'settings.json');
 
 // ── Admin credentials ───────────────────────────────────────────────────────────
 // Set ADMIN_USERNAME and ADMIN_PASSWORD environment variables in production.
@@ -102,15 +103,17 @@ const writeData = (file, data) => {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
 };
 
-// Load persisted games, bets, and parlays on startup
-games   = readData(GAMES_FILE,   []);
-bets    = readData(BETS_FILE,    []);
-parlays = readData(PARLAYS_FILE, []);
+// Load persisted games, bets, parlays, and settings on startup
+games    = readData(GAMES_FILE,    []);
+bets     = readData(BETS_FILE,     []);
+parlays  = readData(PARLAYS_FILE,  []);
+let settings = readData(SETTINGS_FILE, { parlayMaxPayout: 250, parlayMaxStake: null });
 
-const saveGames   = () => writeData(GAMES_FILE,   games);
-const saveBets    = () => writeData(BETS_FILE,     bets);
-const saveParlays = () => writeData(PARLAYS_FILE,  parlays);
-const saveTokens  = () => writeData(TOKENS_FILE,   Object.fromEntries(adminTokens));
+const saveGames    = () => writeData(GAMES_FILE,    games);
+const saveBets     = () => writeData(BETS_FILE,     bets);
+const saveParlays  = () => writeData(PARLAYS_FILE,  parlays);
+const saveSettings = () => writeData(SETTINGS_FILE, settings);
+const saveTokens   = () => writeData(TOKENS_FILE,   Object.fromEntries(adminTokens));
 
 // Load persisted admin tokens, pruning any that are already expired
 const storedTokens = readData(TOKENS_FILE, {});
@@ -924,6 +927,28 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    // ── /settings ─────────────────────────────────────────────────────────────
+
+    // GET /settings — admin only
+    if (req.method === 'GET' && resource === 'settings' && !id) {
+      if (!validateAdminToken(req)) { res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+      res.writeHead(200);
+      res.end(JSON.stringify(settings));
+      return;
+    }
+
+    // PUT /settings — admin only
+    if (req.method === 'PUT' && resource === 'settings' && !id) {
+      if (!validateAdminToken(req)) { res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+      const updates = await readBody(req);
+      settings = { ...settings, ...updates };
+      saveSettings();
+      console.log(`[SETTINGS] Updated: ${JSON.stringify(settings)}`);
+      res.writeHead(200);
+      res.end(JSON.stringify(settings));
+      return;
+    }
+
     // ── /parlays ──────────────────────────────────────────────────────────────
 
     // GET /parlays — admin token → all; ?userId=<id> → user's parlays
@@ -970,10 +995,14 @@ const server = http.createServer(async (req, res) => {
         : (100 / Math.abs(combinedOdds)) + 1;
       const payout = parseFloat((stake * combinedDecimal).toFixed(2));
 
-      const PARLAY_MAX_PAYOUT = 250;
-      if (payout > PARLAY_MAX_PAYOUT) {
+      if (payout > settings.parlayMaxPayout) {
         res.writeHead(400);
-        res.end(JSON.stringify({ error: `Parlay payout cannot exceed $${PARLAY_MAX_PAYOUT}. Reduce your stake or legs.` }));
+        res.end(JSON.stringify({ error: `Parlay payout cannot exceed $${settings.parlayMaxPayout}. Reduce your stake or legs.` }));
+        return;
+      }
+      if (settings.parlayMaxStake !== null && stake > settings.parlayMaxStake) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: `Maximum parlay stake is $${settings.parlayMaxStake}.` }));
         return;
       }
 

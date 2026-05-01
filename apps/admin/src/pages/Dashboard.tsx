@@ -8,6 +8,7 @@ import UsersPanel from '../components/UsersPanel';
 import AddGameModal from '../components/AddGameModal';
 import AdvancedGameModal from '../components/AdvancedGameModal';
 import EnterScoreModal from '../components/EnterScoreModal';
+import SettingsModal from '../components/SettingsModal';
 import Button from '../components/Button';
 import {
   fetchGames,
@@ -126,6 +127,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAddGame, setShowAddGame] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [advancedGame, setAdvancedGame] = useState<Game | null>(null);
   const [enterScoreGame, setEnterScoreGame] = useState<Game | null>(null);
 
@@ -213,11 +215,16 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         <PageTitle>
           {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : 'Users'}
         </PageTitle>
-        {activeTab === 'games' && (
-          <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
-            + Add Game
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {activeTab === 'games' && (
+            <Button variant="primary" onClick={() => setShowAddGame(true)} disabled={!!error}>
+              + Add Game
+            </Button>
+          )}
+          <Button variant="ghost" onClick={() => setShowSettings(true)} title="Settings">
+            ⚙
           </Button>
-        )}
+        </div>
       </PageHeader>
 
       {/* Tab bar */}
@@ -287,6 +294,13 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         <AddGameModal
           onClose={() => setShowAddGame(false)}
           onAdd={handleAddGame}
+        />
+      )}
+
+      {showSettings && (
+        <SettingsModal
+          adminToken={adminToken}
+          onClose={() => setShowSettings(false)}
         />
       )}
 

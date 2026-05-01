@@ -156,11 +156,16 @@ const ParlayAddButton = styled.button<{ inParlay: boolean }>`
   background-color: ${({ inParlay }) => (inParlay ? 'rgba(34,197,94,0.12)' : 'transparent')};
   border: 1px solid ${({ inParlay }) => (inParlay ? 'rgba(34,197,94,0.3)' : colors.border)};
 
-  &:hover {
+  &:hover:not(:disabled) {
     color: ${({ inParlay }) => (inParlay ? colors.negative : colors.positive)};
     border-color: ${({ inParlay }) => (inParlay ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)')};
     background-color: ${({ inParlay }) =>
       inParlay ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)'};
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 `;
 
@@ -302,6 +307,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                         />
                         <ParlayAddButton
                           inParlay={hasLeg(game.id, 'moneyline', 'away')}
+                          disabled={lockedSides.away}
                           onClick={() => hasLeg(game.id, 'moneyline', 'away')
                             ? removeLeg(game.id, 'moneyline', 'away')
                             : addLeg({ gameId: game.id, betType: 'moneyline', side: 'away', label: game.awayTeam, odds: game.odds.moneyline.away })
@@ -321,6 +327,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                         />
                         <ParlayAddButton
                           inParlay={hasLeg(game.id, 'moneyline', 'home')}
+                          disabled={lockedSides.home}
                           onClick={() => hasLeg(game.id, 'moneyline', 'home')
                             ? removeLeg(game.id, 'moneyline', 'home')
                             : addLeg({ gameId: game.id, betType: 'moneyline', side: 'home', label: game.homeTeam, odds: game.odds.moneyline.home })
@@ -352,6 +359,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                           />
                           <ParlayAddButton
                             inParlay={hasLeg(game.id, 'spread', 'away')}
+                            disabled={lockedSides.away}
                             onClick={() => hasLeg(game.id, 'spread', 'away')
                               ? removeLeg(game.id, 'spread', 'away')
                               : addLeg({ gameId: game.id, betType: 'spread', side: 'away', label: formatSpreadLabel(game.awayTeam, game.odds.spread.away.line), odds: game.odds.spread.away.juice, line: game.odds.spread.away.line })
@@ -376,6 +384,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, userId, userName }) => {
                           />
                           <ParlayAddButton
                             inParlay={hasLeg(game.id, 'spread', 'home')}
+                            disabled={lockedSides.home}
                             onClick={() => hasLeg(game.id, 'spread', 'home')
                               ? removeLeg(game.id, 'spread', 'home')
                               : addLeg({ gameId: game.id, betType: 'spread', side: 'home', label: formatSpreadLabel(game.homeTeam, game.odds.spread.home.line), odds: game.odds.spread.home.juice, line: game.odds.spread.home.line })

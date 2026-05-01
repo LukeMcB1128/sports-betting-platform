@@ -433,6 +433,7 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
   // ── Section 2: Bet Limits ─────────────────────────────────────────────────
 
   const DEFAULT_MAX_PAYOUT = 1000;
+  const DEFAULT_MAX_STAKE  = 500;
 
   const [awayMaxPayout, setAwayMaxPayout] = useState<number>(
     game.betLimits?.away.maxPayout ?? DEFAULT_MAX_PAYOUT
@@ -440,12 +441,16 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
   const [homeMaxPayout, setHomeMaxPayout] = useState<number>(
     game.betLimits?.home.maxPayout ?? DEFAULT_MAX_PAYOUT
   );
+  const [awayMaxStake, setAwayMaxStake] = useState<number>(
+    game.betLimits?.away.maxStake ?? DEFAULT_MAX_STAKE
+  );
+  const [homeMaxStake, setHomeMaxStake] = useState<number>(
+    game.betLimits?.home.maxStake ?? DEFAULT_MAX_STAKE
+  );
   const [limitsSaved, setLimitsSaved] = useState(false);
 
   const awayOdds = game.odds?.moneyline?.away ?? 0;
   const homeOdds = game.odds?.moneyline?.home ?? 0;
-  const awayMaxStake = calcMaxStake(awayOdds, awayMaxPayout);
-  const homeMaxStake = calcMaxStake(homeOdds, homeMaxPayout);
 
   const handleSaveBetLimits = () => {
     const betLimits: BetLimits = {
@@ -458,13 +463,16 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
 
   // ── Section 3: Lock Sides ─────────────────────────────────────────────────
 
-  const lockedSides: LockedSides = game.lockedSides ?? { home: false, away: false };
+  const [lockedSides, setLockedSides] = useState<LockedSides>(
+    game.lockedSides ?? { home: false, away: false }
+  );
 
   const toggleLock = (side: 'home' | 'away') => {
     const newLocked: LockedSides = {
       ...lockedSides,
       [side]: !lockedSides[side],
     };
+    setLockedSides(newLocked);
     onUpdateLockedSides(game.id, newLocked);
   };
 
@@ -730,6 +738,18 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
               {/* Away */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <OddsHint>Away — {game.awayTeam} ({formatOdds(awayOdds)})</OddsHint>
+                <FormField label="Max Stake ($)">
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={awayMaxStake}
+                    onChange={(e) => {
+                      setAwayMaxStake(parseFloat(e.target.value) || 0);
+                      setLimitsSaved(false);
+                    }}
+                  />
+                </FormField>
                 <FormField label="Max Payout ($)">
                   <Input
                     type="number"
@@ -742,12 +762,23 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
                     }}
                   />
                 </FormField>
-                <MaxStakeHint>Max stake: ${awayMaxStake.toFixed(2)}</MaxStakeHint>
               </div>
 
               {/* Home */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <OddsHint>Home — {game.homeTeam} ({formatOdds(homeOdds)})</OddsHint>
+                <FormField label="Max Stake ($)">
+                  <Input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={homeMaxStake}
+                    onChange={(e) => {
+                      setHomeMaxStake(parseFloat(e.target.value) || 0);
+                      setLimitsSaved(false);
+                    }}
+                  />
+                </FormField>
                 <FormField label="Max Payout ($)">
                   <Input
                     type="number"
@@ -760,7 +791,6 @@ const AdvancedGameModal: React.FC<AdvancedGameModalProps> = ({
                     }}
                   />
                 </FormField>
-                <MaxStakeHint>Max stake: ${homeMaxStake.toFixed(2)}</MaxStakeHint>
               </div>
             </Row>
             <Actions>
