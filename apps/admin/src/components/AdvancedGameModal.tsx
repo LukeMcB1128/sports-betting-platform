@@ -125,11 +125,6 @@ const HintText = styled.p`
   margin-top: -10px;
 `;
 
-const MaxStakeHint = styled.p`
-  font-size: 11px;
-  color: ${colors.textMuted};
-  margin-top: 4px;
-`;
 
 const Actions = styled.div`
   display: flex;
@@ -362,10 +357,6 @@ const validateLines = (f: SetLinesFormData): LinesErrors => ({
   spreadAwayJuice: validateOddsField(f.spreadAwayJuice, 'Away juice'),
 });
 
-const calcMaxStake = (odds: number, maxPayout: number): number => {
-  const decimal = odds > 0 ? (odds / 100) + 1 : (100 / Math.abs(odds)) + 1;
-  return parseFloat((maxPayout / decimal).toFixed(2));
-};
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3002';
 
