@@ -312,7 +312,6 @@ const ParlaySlip: React.FC<ParlaySlipProps> = ({ userId, userName, onClose }) =>
         legs,
         combinedOdds,
         stake,
-        cashAmount: stake,
         userId,
         userName,
       });

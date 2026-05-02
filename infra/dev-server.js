@@ -683,7 +683,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /bets — place a bet
     if (req.method === 'POST' && resource === 'bets' && !id) {
-      const { gameId, betType, side, label, odds, stake, line, specialId, cashAmount, userName, userId } = await readBody(req);
+      const { gameId, betType, side, label, odds, stake, line, specialId, userName, userId } = await readBody(req);
 
       if (!gameId || !betType || !side || !label || odds == null || !stake) {
         res.writeHead(400);
@@ -731,7 +731,6 @@ const server = http.createServer(async (req, res) => {
         ...(line     != null ? { line }      : {}),
         ...(specialId       ? { specialId }  : {}),
         stake,
-        cashAmount,
         payout,
         userId: userId || '',
         userName: userName || 'Unknown',
@@ -742,7 +741,7 @@ const server = http.createServer(async (req, res) => {
       bets.unshift(bet);
       saveBets();
       // No balance deduction — payment confirmed in cash by admin
-      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  cash=$${cashAmount}  status=awaiting_payment`);
+      console.log(`[BET]    ${label} @ ${odds > 0 ? '+' : ''}${odds}  stake=$${stake}  status=awaiting_payment`);
       res.writeHead(201);
       res.end(JSON.stringify({ bet }));
       return;
@@ -1019,7 +1018,7 @@ const server = http.createServer(async (req, res) => {
 
     // POST /parlays — place a parlay
     if (req.method === 'POST' && resource === 'parlays' && !id) {
-      const { legs, combinedOdds, stake, cashAmount, userId, userName } = await readBody(req);
+      const { legs, combinedOdds, stake, userId, userName } = await readBody(req);
 
       if (!legs || !Array.isArray(legs) || legs.length < 2) {
         res.writeHead(400);
@@ -1062,7 +1061,6 @@ const server = http.createServer(async (req, res) => {
         combinedOdds,
         stake,
         payout,
-        cashAmount: cashAmount ?? stake,
         status: 'awaiting_payment',
         placedAt: new Date().toISOString(),
       };

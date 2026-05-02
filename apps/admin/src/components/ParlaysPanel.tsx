@@ -386,7 +386,6 @@ const ParlaysPanel: React.FC<ParlaysPanelProps> = ({ adminToken }) => {
               <Th>Legs</Th>
               <Th>Odds</Th>
               <Th>Stake</Th>
-              <Th>Cash</Th>
               <Th>To Win</Th>
               <Th>Payout</Th>
               <Th>Status</Th>
@@ -443,13 +442,6 @@ const ParlaysPanel: React.FC<ParlaysPanelProps> = ({ adminToken }) => {
 
                     {/* Stake */}
                     <Td><MonoValue>{formatMoney(parlay.stake)}</MonoValue></Td>
-
-                    {/* Cash */}
-                    <Td>
-                      <MonoValue style={{ color: parlay.cashAmount ? colors.text : colors.textMuted }}>
-                        {parlay.cashAmount ? formatMoney(parlay.cashAmount) : '—'}
-                      </MonoValue>
-                    </Td>
 
                     {/* To Win */}
                     <Td><MonoValue>{formatMoney(profit)}</MonoValue></Td>

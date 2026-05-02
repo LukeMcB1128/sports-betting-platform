@@ -37,9 +37,8 @@ export interface Bet {
   odds: number;     // e.g. -110 (the juice / price)
   line?: number;    // spread line at time of bet, e.g. -3.5 (spread bets only)
   specialId?: string; // which special this bet is on (betType === 'special' only)
-  stake: number;    // amount wagered (declared cash amount)
+  stake: number;    // amount wagered
   payout: number;   // total payout on win (stake + profit)
-  cashAmount: number; // cash the user declared they are handing over
   userId: string;
   userName: string;
   status: BetStatus;
@@ -103,7 +102,6 @@ export interface Parlay {
   combinedOdds: number;  // American, already house-edge-adjusted
   stake: number;
   payout: number;
-  cashAmount: number;
   status: 'awaiting_payment' | 'pending' | 'won' | 'lost' | 'void';
   placedAt: string;      // ISO string
 }

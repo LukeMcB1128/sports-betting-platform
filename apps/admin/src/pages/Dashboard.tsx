@@ -8,7 +8,8 @@ import UsersPanel from '../components/UsersPanel';
 import AddGameModal from '../components/AddGameModal';
 import AdvancedGameModal from '../components/AdvancedGameModal';
 import EnterScoreModal from '../components/EnterScoreModal';
-import SettingsModal from '../components/SettingsModal';
+import SettingsModal from '../components/SettingsModal'
+import FinancialsPanel from '../components/FinancialsPanel';
 import Button from '../components/Button';
 import {
   fetchGames,
@@ -25,7 +26,7 @@ import {
   voidAllBets,
 } from '../api/gamesApi';
 
-type ActiveTab = 'games' | 'bets' | 'users';
+type ActiveTab = 'games' | 'bets' | 'users' | 'financials';
 
 const Page = styled.main`
   max-width: 1100px;
@@ -213,7 +214,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
     <Page>
       <PageHeader>
         <PageTitle>
-          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : 'Users'}
+          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : activeTab === 'users' ? 'Users' : 'Financials'}
         </PageTitle>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {activeTab === 'games' && (
@@ -237,6 +238,9 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         </Tab>
         <Tab active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
           Users
+        </Tab>
+        <Tab active={activeTab === 'financials'} onClick={() => setActiveTab('financials')}>
+          Financials
         </Tab>
       </TabBar>
 
@@ -288,6 +292,9 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
 
       {/* ── Users tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'users' && <UsersPanel adminToken={adminToken} />}
+
+      {/* ── Financials tab ────────────────────────────────────────────────── */}
+      {activeTab === 'financials' && <FinancialsPanel adminToken={adminToken} />}
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showAddGame && (
