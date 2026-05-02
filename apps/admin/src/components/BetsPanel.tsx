@@ -417,6 +417,7 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
   const currStaked      = allItems.filter((i) => i.data.status === 'pending').reduce((s, i) => s + i.data.stake, 0);
   const potentialPayout = allItems.filter((i) => i.data.status === 'pending').reduce((s, i) => s + i.data.payout, 0);
   const totalStaked     = allItems.filter((i) => i.data.status !== 'awaiting_payment').reduce((s, i) => s + i.data.stake, 0);
+  const totalLost       = allItems.filter((i) => i.data.status === 'lost').reduce((s, i) => s + i.data.stake, 0);
   const totalWon        = allItems.filter((i) => i.data.status === 'won').reduce((s, i) => s + i.data.payout, 0);
 
   // ── Sort: awaiting first, then pending, then settled — newest within group ────
@@ -466,6 +467,10 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
             <StatCard>
               <StatValue>{formatMoney(totalStaked)}</StatValue>
               <StatLabel>Total Staked</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{formatMoney(totalLost)}</StatValue>
+              <StatLabel>Total Lost</StatLabel>
             </StatCard>
             <StatCard>
               <StatValue>{formatMoney(totalWon)}</StatValue>
