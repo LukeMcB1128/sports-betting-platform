@@ -227,7 +227,8 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
   const [games, setGames]     = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
-  const [userFilter, setUserFilter] = useState<string>('all');
+  const [userFilter, setUserFilter]     = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -325,10 +326,11 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
     new Set(allItems.map((i) => i.data.userName).filter(Boolean))
   ).sort();
 
-  const filteredItems =
-    userFilter === 'all'
-      ? allItems
-      : allItems.filter((i) => i.data.userName === userFilter);
+  const filteredItems = allItems.filter((i) => {
+    if (userFilter !== 'all' && i.data.userName !== userFilter) return false;
+    if (statusFilter !== 'all' && i.data.status !== statusFilter) return false;
+    return true;
+  });
 
   const sortedItems = [...filteredItems].sort(
     (a, b) => new Date(b.data.placedAt).getTime() - new Date(a.data.placedAt).getTime()
@@ -454,15 +456,28 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
       {/* ── Section 2: Bets by user ────────────────────────────────────── */}
       <SectionHeader>
         <SectionTitle style={{ marginBottom: 0 }}>All Bets &amp; Parlays</SectionTitle>
-        <FilterSelect
-          value={userFilter}
-          onChange={(e) => setUserFilter(e.target.value)}
-        >
-          <option value="all">All users</option>
-          {allUserNames.map((name) => (
-            <option key={name} value={name}>{name}</option>
-          ))}
-        </FilterSelect>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <FilterSelect
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">All statuses</option>
+            <option value="awaiting_payment">Awaiting Payment</option>
+            <option value="pending">Pending</option>
+            <option value="won">Won</option>
+            <option value="lost">Lost</option>
+            <option value="void">Void</option>
+          </FilterSelect>
+          <FilterSelect
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+          >
+            <option value="all">All users</option>
+            {allUserNames.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </FilterSelect>
+        </div>
       </SectionHeader>
       <TableWrap>
         <Table style={{ minWidth: 680 }}>
@@ -481,7 +496,9 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
             {sortedItems.length === 0 && !loading ? (
               <tr>
                 <EmptyCell colSpan={7}>
-                  {userFilter === 'all' ? 'No bets placed yet.' : `No bets for ${userFilter}.`}
+                  {userFilter === 'all' && statusFilter === 'all'
+                    ? 'No bets placed yet.'
+                    : 'No bets match the selected filters.'}
                 </EmptyCell>
               </tr>
             ) : (
