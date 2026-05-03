@@ -261,8 +261,8 @@ const GamesTable: React.FC<GamesTableProps> = ({
                       {game.published ? 'Unpublish' : 'Publish'}
                     </Button>
 
-                    {/* Enter Score */}
-                    {(isLive ||isResolving) && (
+                    {/* Enter Score — available for live, resolving, and final (score correction) */}
+                    {(isLive || isResolving || isFinal) && (
                       <Button
                         size="sm"
                         variant="primary"

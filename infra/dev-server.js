@@ -231,6 +231,59 @@ const calcPayout = (stake, odds) => {
 };
 
 /**
+ * Roll back all settled bets for a game to 'pending' so they can be re-settled.
+ * Called when a game is moved back from 'final' to any other status.
+ * Reverses balance credits that were applied during original settlement.
+ */
+const unsettleGameBets = (gameId) => {
+  let count = 0;
+  bets = bets.map((bet) => {
+    if (bet.gameId !== gameId) return bet;
+    if (bet.status === 'won') {
+      balance = parseFloat((balance - bet.payout).toFixed(2));
+      count++;
+      return { ...bet, status: 'pending' };
+    }
+    if (bet.status === 'void') {
+      balance = parseFloat((balance - bet.stake).toFixed(2));
+      count++;
+      return { ...bet, status: 'pending' };
+    }
+    if (bet.status === 'lost') {
+      count++;
+      return { ...bet, status: 'pending' };
+    }
+    return bet; // awaiting_payment untouched
+  });
+  if (count > 0) {
+    console.log(`[UNSETTLE] ${count} bet(s) reset to pending for game ${gameId}  balance=$${balance}`);
+    saveBets();
+  }
+};
+
+/**
+ * Roll back all parlays that had legs on this game back to 'pending'.
+ * Clears any internal settlement flags so they can be re-evaluated cleanly.
+ */
+const unsettleGameParlays = (gameId) => {
+  let count = 0;
+  parlays = parlays.map((parlay) => {
+    const hasLeg = parlay.legs.some((l) => l.gameId === gameId);
+    if (!hasLeg) return parlay;
+    if (parlay.status !== 'won' && parlay.status !== 'lost' && parlay.status !== 'void') return parlay;
+    // Reverse balance credits
+    if (parlay.status === 'won')  balance = parseFloat((balance - parlay.payout).toFixed(2));
+    if (parlay.status === 'void') balance = parseFloat((balance - parlay.stake).toFixed(2));
+    // Strip internal flags that track partial settlement across multi-game parlays
+    const cleanLegs = parlay.legs.map(({ _settled, _legOutcome, ...l }) => l);
+    count++;
+    console.log(`[UNSETTLE] parlay ${parlay.id} reset to pending`);
+    return { ...parlay, legs: cleanLegs, status: 'pending' };
+  });
+  if (count > 0) saveParlays();
+};
+
+/**
  * Determine the outcome of a single pending bet given a final game result.
  * Returns 'won', 'lost', or 'void' (push / tie).
  */
@@ -850,6 +903,13 @@ const server = http.createServer(async (req, res) => {
       const existing = games.find((g) => g.id === id);
       if (updates.status === 'live' && existing && existing.status !== 'live') {
         updates.bettingEnabled = false;
+      }
+      // If game is being rolled back from 'final', un-settle its bets/parlays
+      // so they can be correctly re-settled when it goes final again.
+      if (existing && existing.status === 'final' && updates.status && updates.status !== 'final') {
+        console.log(`[ROLLBACK] game ${id} final→${updates.status}; unsettling bets`);
+        unsettleGameBets(id);
+        unsettleGameParlays(id);
       }
       games = games.map((g) => (g.id === id ? { ...g, ...updates } : g));
       const updated = games.find((g) => g.id === id);
