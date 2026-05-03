@@ -574,7 +574,7 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
               <UserStatsTh>Awaiting Pmt</UserStatsTh>
               <UserStatsTh>Active (Paid)</UserStatsTh>
               <UserStatsTh>Can Win</UserStatsTh>
-              <UserStatsTh>Won (Payout)</UserStatsTh>
+              <UserStatsTh style={{ color: '#f59e0b' }}>Owes User</UserStatsTh>
               <UserStatsTh>Lost (Stake)</UserStatsTh>
               <UserStatsTh>Total Placed</UserStatsTh>
             </tr>
@@ -617,7 +617,7 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
                   </UserStatsTd>
                   <UserStatsTd>
                     {u.wonPayout > 0 ? (
-                      <span style={{ color: colors.success, fontWeight: 600 }}>{formatMoney(u.wonPayout)}</span>
+                      <span style={{ color: '#f59e0b', fontWeight: 700 }}>{formatMoney(u.wonPayout)}</span>
                     ) : (
                       <span style={{ color: colors.textMuted }}>—</span>
                     )}
@@ -633,6 +633,30 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
                 </UserStatsTr>
               ))
             )}
+            {userStatsList.length > 1 && (() => {
+              const totalOwed = userStatsList.reduce((s, u) => s + u.wonPayout, 0);
+              return (
+                <tr style={{ borderTop: `2px solid ${colors.border}` }}>
+                  <UserStatsTd style={{ color: colors.textMuted, fontWeight: 700, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Total
+                  </UserStatsTd>
+                  <UserStatsTd>—</UserStatsTd>
+                  <UserStatsTd>—</UserStatsTd>
+                  <UserStatsTd>—</UserStatsTd>
+                  <UserStatsTd>
+                    {totalOwed > 0 ? (
+                      <span style={{ color: '#f59e0b', fontWeight: 700 }}>{formatMoney(totalOwed)}</span>
+                    ) : (
+                      <span style={{ color: colors.textMuted }}>—</span>
+                    )}
+                  </UserStatsTd>
+                  <UserStatsTd>—</UserStatsTd>
+                  <UserStatsTd style={{ fontWeight: 700 }}>
+                    {formatMoney(userStatsList.reduce((s, u) => s + u.totalPlaced, 0))}
+                  </UserStatsTd>
+                </tr>
+              );
+            })()}
           </tbody>
         </UserStatsTable>
       </TableWrap>
