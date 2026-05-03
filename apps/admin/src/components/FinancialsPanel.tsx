@@ -333,12 +333,23 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken, events = 
     return gameMatchesEvent(gameId ?? '');
   });
 
-  const summaryTotalCount    = summaryItems.length;
-  const summaryTotalStaked   = summaryItems.filter((i) => i.data.status !== 'void' && i.data.status !== 'awaiting_payment').reduce((s, i) => s + i.data.stake, 0);
-  const summaryOwesUsers     = summaryItems.filter((i) => i.data.status === 'won').reduce((s, i) => s + i.data.payout, 0);
-  const summaryHouseWon      = summaryItems.filter((i) => i.data.status === 'lost').reduce((s, i) => s + i.data.stake, 0);
-  const summaryHouseProfit   = summaryHouseWon - summaryOwesUsers;
-  const summaryPendingLiab   = summaryItems.filter((i) => i.data.status === 'pending').reduce((s, i) => s + i.data.payout, 0);
+  const summaryTotalCount  = summaryItems.length;
+  const summaryTotalStaked = summaryItems
+    .filter((i) => i.data.status !== 'void' && i.data.status !== 'awaiting_payment')
+    .reduce((s, i) => s + i.data.stake, 0);
+  const summaryOwesUsers   = summaryItems
+    .filter((i) => i.data.status === 'won')
+    .reduce((s, i) => s + i.data.payout, 0);
+  // Settled stake = stakes from bets that are fully resolved (won or lost).
+  // The house received stakes from BOTH losing AND winning bets; it only pays
+  // out payout on wins.  Profit = settled_stakes − won_payouts.
+  const summarySettledStake = summaryItems
+    .filter((i) => i.data.status === 'won' || i.data.status === 'lost')
+    .reduce((s, i) => s + i.data.stake, 0);
+  const summaryHouseProfit  = summarySettledStake - summaryOwesUsers;
+  const summaryPendingLiab  = summaryItems
+    .filter((i) => i.data.status === 'pending')
+    .reduce((s, i) => s + i.data.payout, 0);
 
   // ── Section 1: Per-game liability ─────────────────────────────────────────
 
