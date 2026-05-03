@@ -216,11 +216,6 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
       ? games.filter((g) => !g.eventId)
       : games.filter((g) => g.eventId === eventFilter);
 
-  const upcomingCount  = games.filter((g) => g.status === 'upcoming').length;
-  const liveCount      = games.filter((g) => g.status === 'live').length;
-  const resolvingCount = games.filter((g) => g.status === 'resolving').length;
-  const finalCount     = games.filter((g) => g.status === 'final').length;
-
   return (
     <Page>
       <PageHeader>
