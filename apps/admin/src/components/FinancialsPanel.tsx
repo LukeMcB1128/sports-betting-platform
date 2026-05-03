@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Bet, Parlay, Game, BetStatus } from '../types';
+import { Bet, Parlay, Game, BetStatus, Event } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import { fetchBets } from '../api/betsApi';
 import { fetchParlays } from '../api/parlaysApi';
@@ -169,6 +169,38 @@ const PreferredBadge = styled.span<{ variant: 'home' | 'away' }>`
     variant === 'home' ? '#10b98140' : '#f59e0b40'};
 `;
 
+// ─── Summary stat cards ───────────────────────────────────────────────────────
+
+const StatsRow = styled.div`
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+`;
+
+const StatCard = styled.div`
+  background-color: ${colors.surface};
+  border: 1px solid ${colors.border};
+  border-radius: 8px;
+  padding: 14px 20px;
+  min-width: 120px;
+`;
+
+const StatValue = styled.div`
+  font-size: 26px;
+  font-weight: 700;
+  color: ${colors.text};
+  line-height: 1;
+`;
+
+const StatLabel = styled.div`
+  font-size: 11px;
+  color: ${colors.textMuted};
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+`;
+
 // ─── Per-user stats grid ──────────────────────────────────────────────────────
 
 const UserStatsTable = styled.table`
@@ -219,16 +251,18 @@ const UserStatsTr = styled.tr`
 
 interface FinancialsPanelProps {
   adminToken: string;
+  events?: Event[];
 }
 
-const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
+const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken, events = [] }) => {
   const [bets, setBets]       = useState<Bet[]>([]);
   const [parlays, setParlays] = useState<Parlay[]>([]);
   const [games, setGames]     = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
-  const [userFilter, setUserFilter]     = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [userFilter, setUserFilter]       = useState<string>('all');
+  const [statusFilter, setStatusFilter]   = useState<string>('all');
+  const [eventFilter, setEventFilter]     = useState<string>('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -265,10 +299,46 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
     return () => { cancelled = true; clearInterval(interval); };
   }, [adminToken]);
 
-  // ── Derived: open items only ───────────────────────────────────────────────
+  // ── Derived: open items only, optionally filtered by event ────────────────
 
-  const openBets    = bets.filter((b) => b.status === 'pending' || b.status === 'awaiting_payment');
-  const openParlays = parlays.filter((p) => p.status === 'pending' || p.status === 'awaiting_payment');
+  const gameMap = new Map(games.map((g) => [g.id, g]));
+
+  const gameMatchesEvent = (gameId: string): boolean => {
+    if (eventFilter === 'all') return true;
+    const game = gameMap.get(gameId);
+    if (eventFilter === 'none') return !game?.eventId;
+    return game?.eventId === eventFilter;
+  };
+
+  const openBets    = bets.filter((b) =>
+    (b.status === 'pending' || b.status === 'awaiting_payment') && gameMatchesEvent(b.gameId)
+  );
+  const openParlays = parlays.filter((p) =>
+    (p.status === 'pending' || p.status === 'awaiting_payment') &&
+    p.legs.some((l) => gameMatchesEvent(l.gameId))
+  );
+
+  // ── Shared item type ─────────────────────────────────────────────────────
+
+  type BetItem = { kind: 'bet'; data: Bet } | { kind: 'parlay'; data: Parlay };
+
+  // ── Top-level summary stats (event-filtered, all statuses) ───────────────
+
+  const summaryItems: BetItem[] = [
+    ...bets.map((d) => ({ kind: 'bet' as const, data: d })),
+    ...parlays.map((d) => ({ kind: 'parlay' as const, data: d })),
+  ].filter((i) => {
+    if (eventFilter === 'all') return true;
+    const gameId = i.kind === 'bet' ? i.data.gameId : i.data.legs[0]?.gameId;
+    return gameMatchesEvent(gameId ?? '');
+  });
+
+  const summaryTotalCount    = summaryItems.length;
+  const summaryTotalStaked   = summaryItems.filter((i) => i.data.status !== 'void' && i.data.status !== 'awaiting_payment').reduce((s, i) => s + i.data.stake, 0);
+  const summaryOwesUsers     = summaryItems.filter((i) => i.data.status === 'won').reduce((s, i) => s + i.data.payout, 0);
+  const summaryHouseWon      = summaryItems.filter((i) => i.data.status === 'lost').reduce((s, i) => s + i.data.stake, 0);
+  const summaryHouseProfit   = summaryHouseWon - summaryOwesUsers;
+  const summaryPendingLiab   = summaryItems.filter((i) => i.data.status === 'pending').reduce((s, i) => s + i.data.payout, 0);
 
   // ── Section 1: Per-game liability ─────────────────────────────────────────
 
@@ -299,8 +369,6 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
     }
   }
 
-  const gameMap = new Map(games.map((g) => [g.id, g]));
-
   const liabilityRows: GameLiability[] = Array.from(liabilityByGame.entries()).reduce<GameLiability[]>(
     (acc, [gameId, { homeExp, awayExp }]) => {
       const game = gameMap.get(gameId);
@@ -315,12 +383,16 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
 
   // ── Section 2: Bets by user ───────────────────────────────────────────────
 
-  type BetItem = { kind: 'bet'; data: Bet } | { kind: 'parlay'; data: Parlay };
+  const itemMatchesEvent = (item: BetItem): boolean => {
+    if (eventFilter === 'all') return true;
+    const gameId = item.kind === 'bet' ? item.data.gameId : item.data.legs[0]?.gameId;
+    return gameMatchesEvent(gameId ?? '');
+  };
 
   const allItems: BetItem[] = [
     ...bets.map((d) => ({ kind: 'bet' as const, data: d })),
     ...parlays.map((d) => ({ kind: 'parlay' as const, data: d })),
-  ];
+  ].filter(itemMatchesEvent);
 
   const allUserNames = Array.from(
     new Set(allItems.map((i) => i.data.userName).filter(Boolean))
@@ -395,6 +467,50 @@ const FinancialsPanel: React.FC<FinancialsPanelProps> = ({ adminToken }) => {
     <div>
       {loading && <Banner variant="loading">Loading financials…</Banner>}
       {error && <Banner variant="error">{error}</Banner>}
+
+      {/* ── Event filter ───────────────────────────────────────────────── */}
+      {events.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <span style={{ fontSize: 12, color: colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Event</span>
+          <FilterSelect value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}>
+            <option value="all">All events</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>{ev.name}{ev.isActive ? ' ★' : ''}</option>
+            ))}
+            <option value="none">No event (legacy)</option>
+          </FilterSelect>
+        </div>
+      )}
+
+      {/* ── Summary stat cards ─────────────────────────────────────────── */}
+      {!loading && !error && (
+        <>
+          <StatsRow>
+            <StatCard>
+              <StatValue>{summaryTotalCount}</StatValue>
+              <StatLabel>Total Bets</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{formatMoney(summaryTotalStaked)}</StatValue>
+              <StatLabel>Total Staked</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue style={{ color: '#f59e0b' }}>{formatMoney(summaryOwesUsers)}</StatValue>
+              <StatLabel>Owes Users</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue style={{ color: summaryHouseProfit >= 0 ? colors.success : colors.danger }}>
+                {formatMoney(Math.abs(summaryHouseProfit))}
+              </StatValue>
+              <StatLabel>{summaryHouseProfit >= 0 ? 'House Profit' : 'House Loss'}</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatValue>{formatMoney(summaryPendingLiab)}</StatValue>
+              <StatLabel>Pending Liability</StatLabel>
+            </StatCard>
+          </StatsRow>
+        </>
+      )}
 
       {/* ── Section 1: Per-game liability ──────────────────────────────── */}
       <SectionTitle>Per-Game Liability (Open Bets)</SectionTitle>

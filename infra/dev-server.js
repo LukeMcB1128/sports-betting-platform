@@ -81,6 +81,7 @@ const GAMES_FILE     = path.join(DATA_DIR, 'games.json');
 const BETS_FILE      = path.join(DATA_DIR, 'bets.json');
 const PARLAYS_FILE   = path.join(DATA_DIR, 'parlays.json');
 const TOKENS_FILE    = path.join(DATA_DIR, 'admin-tokens.json');
+const EVENTS_FILE    = path.join(DATA_DIR, 'events.json');
 const SETTINGS_FILE  = path.join(DATA_DIR, 'settings.json');
 
 // ── Admin credentials ───────────────────────────────────────────────────────────
@@ -108,11 +109,13 @@ games    = readData(GAMES_FILE,    []);
 bets     = readData(BETS_FILE,     []);
 parlays  = readData(PARLAYS_FILE,  []);
 let settings = readData(SETTINGS_FILE, { parlayMaxPayout: 250, parlayMaxStake: null });
+let events   = readData(EVENTS_FILE,   []);
 
 const saveGames    = () => writeData(GAMES_FILE,    games);
 const saveBets     = () => writeData(BETS_FILE,     bets);
 const saveParlays  = () => writeData(PARLAYS_FILE,  parlays);
 const saveSettings = () => writeData(SETTINGS_FILE, settings);
+const saveEvents   = () => writeData(EVENTS_FILE,   events);
 const saveTokens   = () => writeData(TOKENS_FILE,   Object.fromEntries(adminTokens));
 
 // Load persisted admin tokens, pruning any that are already expired
@@ -878,8 +881,18 @@ const server = http.createServer(async (req, res) => {
 
     // GET /games
     if (req.method === 'GET' && resource === 'games' && !id) {
-      res.writeHead(200);
-      res.end(JSON.stringify(games));
+      const activeOnly = req.url.includes('active=true');
+      if (activeOnly) {
+        const activeEvent = events.find((e) => e.isActive);
+        const result = activeEvent
+          ? games.filter((g) => g.eventId === activeEvent.id && g.published)
+          : [];
+        res.writeHead(200);
+        res.end(JSON.stringify(result));
+      } else {
+        res.writeHead(200);
+        res.end(JSON.stringify(games));
+      }
       return;
     }
 
@@ -888,6 +901,9 @@ const server = http.createServer(async (req, res) => {
       const game = await readBody(req);
       game.id = generateId(); // server always owns the ID — prevents client collisions
       game.bettingEnabled = true; // auto-enable betting when a game is created
+      // Auto-assign to the currently active event
+      const activeEvent = events.find((e) => e.isActive);
+      if (activeEvent) game.eventId = activeEvent.id;
       games.unshift(game);
       saveGames();
       console.log(`[ADD]    ${game.awayTeam} @ ${game.homeTeam} (${game.league})`);
@@ -1031,6 +1047,85 @@ const server = http.createServer(async (req, res) => {
       console.log(`[VOID] ${voidedCount} bet(s) voided for game ${id}`);
       res.writeHead(200);
       res.end(JSON.stringify({ voided: voidedCount }));
+      return;
+    }
+
+    // ── /events ───────────────────────────────────────────────────────────────
+
+    // GET /events/active — public; used by web app
+    if (req.method === 'GET' && resource === 'events' && id === 'active') {
+      const active = events.find((e) => e.isActive) || null;
+      res.writeHead(200);
+      res.end(JSON.stringify(active));
+      return;
+    }
+
+    // GET /events — admin only
+    if (req.method === 'GET' && resource === 'events' && !id) {
+      if (!validateAdminToken(req)) { res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+      const sorted = [...events].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      res.writeHead(200);
+      res.end(JSON.stringify(sorted));
+      return;
+    }
+
+    // POST /events — admin only
+    if (req.method === 'POST' && resource === 'events' && !id) {
+      if (!validateAdminToken(req)) { res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+      const body = await readBody(req);
+      if (!body.name || !body.date) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'name and date are required' }));
+        return;
+      }
+      const event = {
+        id: generateId(),
+        name: body.name.trim(),
+        date: body.date,
+        description: body.description?.trim() || '',
+        isActive: false,
+        createdAt: new Date().toISOString(),
+      };
+      events.push(event);
+      saveEvents();
+      console.log(`[EVENT] Created: ${event.name}`);
+      res.writeHead(201);
+      res.end(JSON.stringify(event));
+      return;
+    }
+
+    // PUT /events/:id — admin only; if isActive:true, deactivates all others
+    if (req.method === 'PUT' && resource === 'events' && id) {
+      if (!validateAdminToken(req)) { res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+      const updates = await readBody(req);
+      const idx = events.findIndex((e) => e.id === id);
+      if (idx === -1) { res.writeHead(404); res.end(JSON.stringify({ error: 'Event not found' })); return; }
+      if (updates.isActive === true) {
+        // Deactivate all others
+        events = events.map((e) => ({ ...e, isActive: false }));
+      }
+      events[idx] = { ...events[idx], ...updates };
+      saveEvents();
+      console.log(`[EVENT] Updated ${events[idx].name}: ${JSON.stringify(updates)}`);
+      res.writeHead(200);
+      res.end(JSON.stringify(events[idx]));
+      return;
+    }
+
+    // DELETE /events/:id — admin only; blocked if games are assigned
+    if (req.method === 'DELETE' && resource === 'events' && id) {
+      if (!validateAdminToken(req)) { res.writeHead(401); res.end(JSON.stringify({ error: 'Unauthorized' })); return; }
+      const gameCount = games.filter((g) => g.eventId === id).length;
+      if (gameCount > 0) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: `Cannot delete event: ${gameCount} game(s) are assigned to it.` }));
+        return;
+      }
+      events = events.filter((e) => e.id !== id);
+      saveEvents();
+      console.log(`[EVENT] Deleted id=${id}`);
+      res.writeHead(200);
+      res.end(JSON.stringify({ success: true }));
       return;
     }
 

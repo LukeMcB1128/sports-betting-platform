@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Game, GameStatus, GameOdds, BetLimits, LockedSides, Special } from '../types';
+import { Game, GameStatus, GameOdds, BetLimits, LockedSides, Special, Event } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import GamesTable from '../components/GamesTable';
 import BetsPanel from '../components/BetsPanel';
 import UsersPanel from '../components/UsersPanel';
+import EventsPanel from '../components/EventsPanel';
+import FinancialsPanel from '../components/FinancialsPanel';
 import AddGameModal from '../components/AddGameModal';
 import AdvancedGameModal from '../components/AdvancedGameModal';
 import EnterScoreModal from '../components/EnterScoreModal';
-import SettingsModal from '../components/SettingsModal'
-import FinancialsPanel from '../components/FinancialsPanel';
+import SettingsModal from '../components/SettingsModal';
 import Button from '../components/Button';
+import { fetchEvents } from '../api/eventsApi';
 import {
   fetchGames,
   createGame,
@@ -26,7 +28,7 @@ import {
   voidAllBets,
 } from '../api/gamesApi';
 
-type ActiveTab = 'games' | 'bets' | 'users' | 'financials';
+type ActiveTab = 'games' | 'bets' | 'users' | 'events' | 'financials';
 
 const Page = styled.main`
   max-width: 1100px;
@@ -127,6 +129,8 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventFilter, setEventFilter] = useState<string>('all');
   const [showAddGame, setShowAddGame] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [advancedGame, setAdvancedGame] = useState<Game | null>(null);
@@ -137,7 +141,8 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
       .then(setGames)
       .catch(() => setError('Cannot connect to dev server. Run: node infra/dev-server.js'))
       .finally(() => setLoading(false));
-  }, []);
+    fetchEvents(adminToken).then(setEvents).catch(() => {});
+  }, [adminToken]);
 
   const handleAddGame = async (game: Game) => {
     const created = await createGame(game);
@@ -205,6 +210,12 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
     // bets panel will refresh on its own poll; no game state change needed
   };
 
+  const filteredGames = eventFilter === 'all'
+    ? games
+    : eventFilter === 'none'
+      ? games.filter((g) => !g.eventId)
+      : games.filter((g) => g.eventId === eventFilter);
+
   const upcomingCount  = games.filter((g) => g.status === 'upcoming').length;
   const liveCount      = games.filter((g) => g.status === 'live').length;
   const resolvingCount = games.filter((g) => g.status === 'resolving').length;
@@ -214,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
     <Page>
       <PageHeader>
         <PageTitle>
-          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : activeTab === 'users' ? 'Users' : 'Financials'}
+          {activeTab === 'games' ? 'Games' : activeTab === 'bets' ? 'Bets' : activeTab === 'users' ? 'Users' : activeTab === 'events' ? 'Events' : 'Financials'}
         </PageTitle>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {activeTab === 'games' && (
@@ -239,6 +250,9 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
         <Tab active={activeTab === 'users'} onClick={() => setActiveTab('users')}>
           Users
         </Tab>
+        <Tab active={activeTab === 'events'} onClick={() => setActiveTab('events')}>
+          Events
+        </Tab>
         <Tab active={activeTab === 'financials'} onClick={() => setActiveTab('financials')}>
           Financials
         </Tab>
@@ -251,32 +265,52 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
           {error && <Banner variant="error">{error}</Banner>}
 
           {!loading && !error && (
-            <StatsRow>
-              <StatCard>
-                <StatValue>{games.length}</StatValue>
-                <StatLabel>Total</StatLabel>
-              </StatCard>
-              <StatCard>
-                <StatValue>{upcomingCount}</StatValue>
-                <StatLabel>Upcoming</StatLabel>
-              </StatCard>
-              <StatCard>
-                <StatValue style={{ color: colors.live }}>{liveCount}</StatValue>
-                <StatLabel>Live</StatLabel>
-              </StatCard>
-              <StatCard>
-                <StatValue>{resolvingCount}</StatValue>
-                <StatLabel>Resolving</StatLabel>
-              </StatCard>
-              <StatCard>
-                <StatValue style={{ color: colors.textMuted }}>{finalCount}</StatValue>
-                <StatLabel>Final</StatLabel>
-              </StatCard>
-            </StatsRow>
+            <>
+              {/* Event filter */}
+              {events.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <span style={{ fontSize: 12, color: colors.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Event</span>
+                  <select
+                    value={eventFilter}
+                    onChange={(e) => setEventFilter(e.target.value)}
+                    style={{ padding: '6px 10px', borderRadius: 6, border: `1px solid ${colors.border}`, backgroundColor: colors.surface, color: colors.text, fontSize: 13, cursor: 'pointer' }}
+                  >
+                    <option value="all">All events</option>
+                    {events.map((ev) => (
+                      <option key={ev.id} value={ev.id}>{ev.name}{ev.isActive ? ' ★' : ''}</option>
+                    ))}
+                    <option value="none">No event (legacy)</option>
+                  </select>
+                </div>
+              )}
+
+              <StatsRow>
+                <StatCard>
+                  <StatValue>{filteredGames.length}</StatValue>
+                  <StatLabel>Total</StatLabel>
+                </StatCard>
+                <StatCard>
+                  <StatValue>{filteredGames.filter((g) => g.status === 'upcoming').length}</StatValue>
+                  <StatLabel>Upcoming</StatLabel>
+                </StatCard>
+                <StatCard>
+                  <StatValue style={{ color: colors.live }}>{filteredGames.filter((g) => g.status === 'live').length}</StatValue>
+                  <StatLabel>Live</StatLabel>
+                </StatCard>
+                <StatCard>
+                  <StatValue>{filteredGames.filter((g) => g.status === 'resolving').length}</StatValue>
+                  <StatLabel>Resolving</StatLabel>
+                </StatCard>
+                <StatCard>
+                  <StatValue style={{ color: colors.textMuted }}>{filteredGames.filter((g) => g.status === 'final').length}</StatValue>
+                  <StatLabel>Final</StatLabel>
+                </StatCard>
+              </StatsRow>
+            </>
           )}
 
           <GamesTable
-            games={games}
+            games={filteredGames}
             onUpdateStatus={handleUpdateStatus}
             onUpdateOdds={handleSaveLines}
             onTogglePublish={handleTogglePublish}
@@ -288,13 +322,21 @@ const Dashboard: React.FC<DashboardProps> = ({ adminToken }) => {
       )}
 
       {/* ── Bets tab ──────────────────────────────────────────────────────── */}
-      {activeTab === 'bets' && <BetsPanel adminToken={adminToken} />}
+      {activeTab === 'bets' && <BetsPanel adminToken={adminToken} events={events} />}
 
       {/* ── Users tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'users' && <UsersPanel adminToken={adminToken} />}
 
+      {/* ── Events tab ────────────────────────────────────────────────────── */}
+      {activeTab === 'events' && (
+        <EventsPanel
+          adminToken={adminToken}
+          games={games}
+        />
+      )}
+
       {/* ── Financials tab ────────────────────────────────────────────────── */}
-      {activeTab === 'financials' && <FinancialsPanel adminToken={adminToken} />}
+      {activeTab === 'financials' && <FinancialsPanel adminToken={adminToken} events={events} />}
 
       {/* ── Modals ────────────────────────────────────────────────────────── */}
       {showAddGame && (

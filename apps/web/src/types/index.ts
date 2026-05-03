@@ -81,6 +81,7 @@ export interface Game {
   betLimits?: BetLimits;
   lockedSides?: LockedSides;
   specials?: Special[];
+  eventId?: string;
 }
 
 // ─── Parlays ──────────────────────────────────────────────────────────────────

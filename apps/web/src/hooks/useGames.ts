@@ -19,7 +19,7 @@ const useGames = (fallback: Game[]): Game[] => {
 
     const poll = async () => {
       try {
-        const res = await fetch(`${API_BASE}/games`);
+        const res = await fetch(`${API_BASE}/games?active=true`);
         if (res.ok && !cancelled) {
           const data: Game[] = await res.json();
           setGames(data);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Bet, Parlay, Game, BetStatus } from '../types';
+import { Bet, Parlay, Game, BetStatus, Event } from '../types';
 import { colors } from '../styles/GlobalStyles';
 import { fetchBets, deleteBet, confirmPayment, settleBet } from '../api/betsApi';
 import { fetchParlays, confirmParlayPayment, settleParlay, deleteParlay } from '../api/parlaysApi';
@@ -280,14 +280,16 @@ const COLS = 10;
 
 interface BetsPanelProps {
   adminToken: string;
+  events?: Event[];
 }
 
-const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
+const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken, events = [] }) => {
   const [bets, setBets]       = useState<Bet[]>([]);
   const [parlays, setParlays] = useState<Parlay[]>([]);
   const [games, setGames]     = useState<Game[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState<string | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
+  const [eventFilter, setEventFilter]   = useState<string>('all');
 
   const [removingBets, setRemovingBets]       = useState<Set<string>>(new Set());
   const [confirmingBets, setConfirmingBets]   = useState<Set<string>>(new Set());
@@ -403,12 +405,22 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
     }
   };
 
+  // ── Event filter helper ───────────────────────────────────────────────────────
+
+  const itemMatchesEvent = (item: BetItem): boolean => {
+    if (eventFilter === 'all') return true;
+    const gameId = item.kind === 'bet' ? item.data.gameId : item.data.legs[0]?.gameId;
+    const game = gameId ? (gameMap as Record<string, Game>)[gameId] : undefined;
+    if (eventFilter === 'none') return !game?.eventId;
+    return game?.eventId === eventFilter;
+  };
+
   // ── Stats (combined) ──────────────────────────────────────────────────────────
 
   const allItems: BetItem[] = [
     ...bets.map((d) => ({ kind: 'bet' as const, data: d })),
     ...parlays.map((d) => ({ kind: 'parlay' as const, data: d })),
-  ];
+  ].filter(itemMatchesEvent);
 
   const awaitingCount   = allItems.filter((i) => i.data.status === 'awaiting_payment').length;
   const pendingCount    = allItems.filter((i) => i.data.status === 'pending').length;
@@ -434,6 +446,23 @@ const BetsPanel: React.FC<BetsPanelProps> = ({ adminToken }) => {
     <div>
       {loading && <Banner variant="loading">Loading bets…</Banner>}
       {error && <Banner variant="error">{error}</Banner>}
+
+      {!loading && !error && events.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <span style={{ fontSize: 12, color: '#7b8199', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Event</span>
+          <select
+            value={eventFilter}
+            onChange={(e) => setEventFilter(e.target.value)}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #2a2d3e', backgroundColor: '#1a1d2e', color: '#e0e0e0', fontSize: 13, cursor: 'pointer' }}
+          >
+            <option value="all">All events</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>{ev.name}{ev.isActive ? ' ★' : ''}</option>
+            ))}
+            <option value="none">No event (legacy)</option>
+          </select>
+        </div>
+      )}
 
       {!loading && !error && (
         <>

@@ -75,6 +75,18 @@ export interface Game {
   betLimits?: BetLimits;
   lockedSides?: LockedSides;
   specials?: Special[];
+  eventId?: string;
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+export interface Event {
+  id: string;
+  name: string;
+  date: string;        // ISO date e.g. "2026-05-24"
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 // ─── Parlays ──────────────────────────────────────────────────────────────────
